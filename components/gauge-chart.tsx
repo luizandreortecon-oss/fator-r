@@ -8,10 +8,10 @@ interface GaugeChartProps {
 }
 
 export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
-  // Converte decimais (ex: 0.246) para porcentagem (24.6) se necessário
-  const percentValue = value <= 1 ? value * 100 : value;
+  // CORREÇÃO 1: Calcula a porcentagem baseada na meta (0 a 28)
+  const percentValue = (value / target) * 100;
   const clampedValue = Math.min(Math.max(percentValue, 0), 100);
-  const isAnexoIII = clampedValue >= target;
+  const isAnexoIII = clampedValue >= 100; // Se atingir 100% da meta (28), passa para o Anexo III
 
   const minAngle = -135;
   const maxAngle = 135;
@@ -40,6 +40,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
             stroke={isAnexoIII ? "#10B981" : "#EF4444"}
             strokeWidth="14"
             strokeDasharray={440}
+            // CORREÇÃO 2: A barra usa a meta (28) como 100%, em vez de usar 100
             strokeDashoffset={440 - (clampedValue / 100) * 330}
             strokeLinecap="round"
             className="transition-all duration-1000 ease-out"
@@ -63,7 +64,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
 
       <div className="text-center -mt-2">
         <div className="text-3xl font-black text-slate-800 tracking-tight">
-          {percentValue.toFixed(2).replace(".", ",")}%
+          {value.toFixed(2).replace(".", ",")}%
         </div>
         <p className="text-xs font-medium text-slate-500 mt-0.5">
           Meta Anexo III: <strong className="text-slate-700">{target}%</strong>

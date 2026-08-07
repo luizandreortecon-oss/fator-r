@@ -3,111 +3,82 @@
 import React from "react";
 
 interface GaugeChartProps {
-  value: number;      // O valor atual (ex: 24.6)
-  target?: number;    // O limite da zona vermelha (ex: 28)
-  maxValue?: number;  // O valor máximo do gráfico (ex: 100)
+  value: number;
+  target?: number;
 }
 
-export function GaugeChart({ 
-  value, 
-  target = 28, 
-  maxValue = 100 
-}: GaugeChartProps) {
+export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
+  // Define as cores dinâmicas baseadas no valor
+  const isAnexoIII = value >= target;
+  const strokeColor = isAnexoIII ? "#10B981" : "#F59E0B"; // Verde ou Amarelo/Laranja
+  const textColor = isAnexoIII ? "text-emerald-600" : "text-amber-600";
+  const bgColor = isAnexoIII ? "bg-emerald-50" : "bg-amber-50";
 
-  // Lógica para desenhar o gráfico
-  // 1. Calcula as porcentagens para desenhar os arcos
-  const redPercentage = (target / maxValue) * 100;
-  const currentPercentage = Math.min((value / maxValue) * 100, 100);
-
-  // 2. Configurações do SVG (meio círculo, tamanho fixo)
-  const radius = 80;
-  const strokeWidth = 20;
-  const circumference = Math.PI * radius;
-  
-  // 3. O ângulo do ponteiro (vai de -90 graus a 90 graus)
-  const angle = -90 + (currentPercentage / 100) * 180;
+  // Cálculo do círculo (A circunferência total é 100)
+  const circumference = 100;
+  // Quanto da barra vai ser preenchida (o valor atual)
+  const strokeDashoffset = circumference - (value / target) * 100;
+  // Limita para não passar de 100 ou ficar negativo
+  const clampedOffset = Math.max(0, Math.min(strokeDashoffset, circumference));
 
   return (
-    <div className="flex flex-col items-center justify-center w-full bg-slate-900 p-6 rounded-2xl text-white relative">
+    <div className={`flex flex-col items-center justify-center w-full p-6 rounded-2xl ${bgColor} border border-slate-200`}>
       
-      <h3 className="text-lg font-bold mb-2 text-slate-300">MEDIDOR DE FATOR R</h3>
-      
-      {/* SVG onde o gráfico é desenhado */}
-      <svg viewBox="0 0 220 130" className="w-full max-w-[300px] h-auto">
-        {/* 1. Arco de Fundo (Cinza escuro) */}
-        <path
-          d="M 20 110 A 80 80 0 0 1 200 110"
-          fill="none"
-          stroke="#334155" // Cinza escuro
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
-
-        {/* 2. Arco Vermelho (0% até 28%) */}
-        <path
-          d="M 20 110 A 80 80 0 0 1 200 110"
-          fill="none"
-          stroke="#EF4444" // Vermelho
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference - (redPercentage / 100) * circumference}
-          strokeLinecap="round"
-        />
-
-        {/* 3. Arco Verde (Só aparece se o valor ultrapassar 28%) */}
-        {currentPercentage > redPercentage && (
-          <path
-            d="M 20 110 A 80 80 0 0 1 200 110"
-            fill="none"
-            stroke="#10B981" // Verde
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference - ((currentPercentage - redPercentage) / 100) * circumference}
-            strokeLinecap="round"
-            // O verde começa exatamente onde o vermelho termina
-            style={{ transform: `rotate(${(redPercentage / 100) * 180}deg)`, transformOrigin: "110px 110px" }}
+      <div className="relative w-40 h-40 flex items-center justify-center">
+        {/* Círculo de Fundo (Cinza clarinho) */}
+        <svg className="w-full h-full -rotate-90">
+          <circle
+            className="text-slate-200"
+            strokeWidth="10"
+            stroke="currentColor"
+            fill="transparent"
+            r="42"
+            cx="50"
+            cy="50"
           />
+          {/* Barra Colorida (Acompanha o valor) */}
+          <circle
+            className={`${isAnexoIII ? "text-emerald-500" : "text-amber-500"} transition-all duration-700 ease-out`}
+            strokeWidth="10"
+            strokeDasharray={circumference}
+            strokeDashoffset={clampedOffset}
+            strokeLinecap="round"
+            stroke="currentColor"
+            fill="transparent"
+            r="42"
+            cx="50"
+            cy="50"
+          />
+        </svg>
+
+        {/* Círculo Central Escuro (Onde fica o número) */}
+        <div className="absolute w-28 h-28 bg-slate-700 rounded-full flex flex-col items-center justify-center text-white shadow-lg">
+          <span className="text-2xl font-bold tracking-tight">
+            {value.toFixed(1)}%
+          </span>
+          <span className="text-[10px] font-medium text-slate-300 -mt-0.5">
+            Fator R
+          </span>
+        </div>
+
+        {/* Marcador Vermelho (28%) no topo */}
+        <div className="absolute -top-4 right-1/2 translate-x-1/2 flex flex-col items-center">
+          <div className="w-0.5 h-5 bg-red-500 rounded-full" />
+          <span className="text-[10px] font-bold text-red-500 mt-0.5">28%</span>
+        </div>
+      </div>
+
+      {/* Etiqueta de Status */}
+      <div className="mt-4">
+        {isAnexoIII ? (
+          <span className="px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 rounded-full">
+            Anexo III — Alíquota Reduzida
+          </span>
+        ) : (
+          <span className="px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-100 border border-amber-200 rounded-full">
+            Zona de Atenção — Anexo V
+          </span>
         )}
-
-        {/* 4. O Ponteiro */}
-        <line
-          x1="110"
-          y1="110"
-          x2="110"
-          y2="40"
-          stroke="#F8FAFC"
-          strokeWidth="3"
-          strokeLinecap="round"
-          style={{ transform: `rotate(${angle}deg)`, transformOrigin: "110px 110px" }}
-        />
-
-        {/* 5. Marcadores de texto "0%" e "28%" */}
-        <text x="15" y="120" fill="#EF4444" fontSize="12" fontWeight="bold">0%</text>
-        <text x="40" y="15" fill="#EF4444" fontSize="12" fontWeight="bold">{target}%</text>
-        <text x="185" y="120" fill="#10B981" fontSize="12" fontWeight="bold">100%</text>
-      </svg>
-
-      {/* Valor e Status */}
-      <div className="mt-4 text-center">
-        <div className="text-3xl font-bold">
-          {value.toFixed(2)}%
-        </div>
-        <p className="text-sm text-slate-400 mt-1">
-          Fator R Atual
-        </p>
-
-        {/* Badge indicando se está na zona vermelha ou verde */}
-        <div className="mt-3">
-          {value < target ? (
-            <span className="px-3 py-1 text-xs font-bold text-red-500 bg-red-500/20 border border-red-500/50 rounded-full">
-              ZONA VERMELHA (Anexo V)
-            </span>
-          ) : (
-            <span className="px-3 py-1 text-xs font-bold text-emerald-500 bg-emerald-500/20 border border-emerald-500/50 rounded-full">
-              ZONA VERDE (Anexo III)
-            </span>
-          )}
-        </div>
       </div>
     </div>
   );

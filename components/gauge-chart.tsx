@@ -3,39 +3,43 @@
 import React from "react";
 
 interface GaugeChartProps {
-  value: number; // Ex: 0.25 ou 24.60 ou 30.00
+  value: number; // Passe em porcentagem simples: 25 para 25%, 28 para 28%, 50 para 50%, etc.
   target?: number; // Padrão: 28%
 }
 
 export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
+  // Garante que o valor fique no intervalo [0, 100]
   const normalizedValue = Math.min(Math.max(value, 0), 100);
   const isAnexoIII = value >= target;
 
-  // Parâmetros do SVG do Velocímetro
-  const size = 200;
+  // Parâmetros de dimensão do velocímetro
+  const size = 220;
   const strokeWidth = 16;
   const center = size / 2;
-  const radius = center - strokeWidth;
+  const radius = center - strokeWidth - 10;
   const circumference = 2 * Math.PI * radius;
 
-  // Arco de 240 graus (das 8h às 4h no relógio)
+  // Arco total de 240 graus (das 8h às 4h / -210° a 30°)
   const angleRange = 240;
-  const startAngle = 150; // Início do arco em graus
+  const startAngle = -210;
+
+  // Comprimento total da linha do arco
   const totalDash = (circumference * angleRange) / 360;
 
-  // Cálculo da faixa vermelha fixa (0% a 28%)
+  // Divisão dos arcos: Vermelho (0 a 28%) e Verde (28% a 100%)
   const redDash = (totalDash * target) / 100;
+  const greenDash = totalDash - redDash;
 
-  // Cálculo da rotação do ponteiro de indicação de valor
-  const currentAngle = startAngle + (normalizedValue / 100) * angleRange;
+  // Ângulo exato do ponteiro para a porcentagem passada em `value`
+  const pointerAngle = startAngle + (normalizedValue / 100) * angleRange;
 
-  // Posição da marcaição dos 28%
+  // Posição exata do pin/marcador do target (28%)
   const targetAngle = startAngle + (target / 100) * angleRange;
   const targetRad = (targetAngle * Math.PI) / 180;
   const targetX = center + radius * Math.cos(targetRad);
   const targetY = center + radius * Math.sin(targetRad);
 
-  // Status/Cores
+  // Status/Cores da Badge Inferior
   const badgeBg = isAnexoIII ? "bg-emerald-100" : "bg-amber-100";
   const badgeText = isAnexoIII ? "text-emerald-800" : "text-amber-800";
   const badgeBorder = isAnexoIII ? "border-emerald-300" : "border-amber-300";
@@ -61,20 +65,21 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
         style={{ width: size, height: size }}
       >
         <svg width={size} height={size} className="overflow-visible">
-          {/* 1. Trilha Cinza (28% até 100% - Zona Verde/Segura) */}
+          {/* 1. Zona Verde (28% até 100%) */}
           <circle
             cx={center}
             cy={center}
             r={radius}
             fill="none"
-            stroke="#E5E7EB"
+            stroke="#10B981"
             strokeWidth={strokeWidth}
-            strokeDasharray={`${totalDash} ${circumference}`}
+            strokeDasharray={`${greenDash} ${circumference}`}
+            strokeDashoffset={-redDash}
             strokeLinecap="round"
             transform={`rotate(${startAngle} ${center} ${center})`}
           />
 
-          {/* 2. Faixa Vermelha FIXA (0% a 28%) */}
+          {/* 2. Zona Vermelha (0% até 28%) */}
           <circle
             cx={center}
             cy={center}
@@ -88,7 +93,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
           />
         </svg>
 
-        {/* 3. Marcador Fixo de 28% */}
+        {/* 3. Marcador Fixo dos 28% */}
         <div
           className="absolute z-10 flex items-center justify-center -translate-x-1/2 -translate-y-1/2"
           style={{ left: targetX, top: targetY }}
@@ -99,26 +104,26 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
           <div className="w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-md"></div>
         </div>
 
-        {/* 4. PONTEIRO (Aponta exatamente para o valor atual) */}
+        {/* 4. PONTEIRO / AGULHA (Aponta para o `value` informado) */}
         <div
-          className="absolute inset-0 z-20 pointer-events-none transition-transform duration-700 ease-out"
-          style={{ transform: `rotate(${currentAngle}deg)` }}
+          className="absolute z-20 pointer-events-none transition-transform duration-500 ease-out flex items-center justify-start"
+          style={{
+            width: radius,
+            height: "4px",
+            left: center,
+            top: center - 2,
+            transformOrigin: "0% 50%", // Rota a partir do centro
+            transform: `rotate(${pointerAngle}deg)`,
+          }}
         >
-          {/* Linha do Ponteiro que parte do centro até a borda */}
-          <div
-            className="absolute top-1/2 left-1/2 -translate-y-1/2 bg-slate-900 rounded-full shadow-md"
-            style={{
-              width: radius + strokeWidth / 2,
-              height: "4px",
-              transformOrigin: "left center",
-            }}
-          >
-            {/* Cabeça do Ponteiro */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-amber-500 rounded-full border-2 border-white shadow-sm" />
+          {/* Corpo do Ponteiro */}
+          <div className="w-full h-full bg-slate-900 rounded-r-full relative">
+            {/* Cabeça/Ponta do Ponteiro */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-slate-900 rounded-full border-2 border-white shadow-sm" />
           </div>
         </div>
 
-        {/* 5. Círculo Central com o Display */}
+        {/* 5. Miolo Central com o Valor */}
         <div className="absolute inset-0 m-auto w-32 h-32 rounded-full bg-slate-800 flex flex-col items-center justify-center text-white shadow-lg z-30">
           <span className="text-2xl font-extrabold tracking-tight">
             {value.toFixed(2).replace(".", ",")}%

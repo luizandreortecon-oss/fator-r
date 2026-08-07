@@ -8,51 +8,64 @@ interface GaugeChartProps {
 }
 
 export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
-  // Calcula a porcentagem real baseada na meta (0 a 28)
-  const percentValue = (value / target) * 100;
+  // Ajuste de leitura: se for decimal (ex: 0.246), vira 24.6%
+  const percentValue = value <= 1 ? value * 100 : value;
   const clampedValue = Math.min(Math.max(percentValue, 0), 100);
-  const isAnexoIII = clampedValue >= 100;
+  const isAnexoIII = clampedValue >= target;
 
+  // Ângulos da escala do relógio (-135° é o 0% e 135° é o 100%)
   const minAngle = -135;
   const maxAngle = 135;
-  
-  // LINHA DO ESPECIALISTA: Calcula o ângulo do ponteiro baseado no valor
-  const currentAngle = minAngle + (percentValue / 100) * (maxAngle - minAngle);
-  
-  // LINHA DO ESPECIALISTA: Calcula o ângulo da barra (o alvo) que vai até o final
-  const targetAngle = minAngle + (target / 100) * (maxAngle - minAngle);
+  const currentAngle = minAngle + (clampedValue / 100) * (maxAngle - minAngle);
 
   return (
     <div className="flex flex-col items-center justify-center w-full p-4 bg-white rounded-xl">
       <div className="relative flex items-center justify-center w-64 h-48">
-        {/* Trilho de Fundo */}
-        <div 
-          className="absolute w-48 h-48 rounded-full border-[14px] border-slate-100"
-          style={{
-            clipPath: "polygon(0 0, 100% 0, 100% 85%, 0 85%)",
-            maskImage: "radial-gradient(circle, transparent 58%, black 60%)",
-            WebkitMaskImage: "radial-gradient(circle, transparent 58%, black 60%)"
-          }}
-        />
-
-        {/* Arco do Progresso (A barra que vai até o alvo de 28) */}
+        
+        {/* SVG do Velocímetro */}
         <svg viewBox="0 0 200 200" className="w-48 h-48 transform -rotate-90">
+          
+          {/* 1. Arco Cinza de Fundo (100% da escala) */}
           <circle
             cx="100"
             cy="100"
             r="70"
             fill="transparent"
-            stroke={isAnexoIII ? "#10B981" : "#EF4444"}
+            stroke="#F1F5F9"
             strokeWidth="14"
-            strokeDasharray={440}
-            // A barra preenche até o targetAngle
-            strokeDashoffset={440 - (percentValue / 100) * 330}
+            strokeDasharray="330 110"
+            strokeDashoffset="0"
             strokeLinecap="round"
-            className="transition-all duration-1000 ease-out"
+          />
+
+          {/* 2. Faixa VERMELHA Fixa (Zona Anexo V: 0% até 28%) */}
+          <circle
+            cx="100"
+            cy="100"
+            r="70"
+            fill="transparent"
+            stroke="#EF4444"
+            strokeWidth="14"
+            strokeDasharray={`${0.28 * 330} 440`}
+            strokeDashoffset="0"
+            strokeLinecap="round"
+          />
+
+          {/* 3. Faixa VERDE Suave (Zona Anexo III: 28% até 100%) */}
+          <circle
+            cx="100"
+            cy="100"
+            r="70"
+            fill="transparent"
+            stroke="#10B981"
+            strokeWidth="14"
+            strokeDasharray={`${0.72 * 330} 440`}
+            strokeDashoffset={-0.28 * 330}
+            opacity={0.3}
           />
         </svg>
 
-        {/* Ponteiro */}
+        {/* Ponteiro / Agulha */}
         <div 
           className="absolute w-full h-full flex items-center justify-center transition-transform duration-1000 ease-out"
           style={{ transform: `rotate(${currentAngle}deg)` }}
@@ -69,7 +82,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
 
       <div className="text-center -mt-2">
         <div className="text-3xl font-black text-slate-800 tracking-tight">
-          {value.toFixed(2).replace(".", ",")}%
+          {percentValue.toFixed(2).replace(".", ",")}%
         </div>
         <p className="text-xs font-medium text-slate-500 mt-0.5">
           Meta Anexo III: <strong className="text-slate-700">{target}%</strong>

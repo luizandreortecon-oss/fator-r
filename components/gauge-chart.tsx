@@ -8,13 +8,14 @@ interface GaugeChartProps {
 }
 
 export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
-  // CORREÇÃO 1: Calcula a porcentagem baseada na meta (0 a 28)
+  // Calcula a porcentagem baseada na meta (0 a 28) para definir o ponteiro
   const percentValue = (value / target) * 100;
   const clampedValue = Math.min(Math.max(percentValue, 0), 100);
-  const isAnexoIII = clampedValue >= 100; // Se atingir 100% da meta (28), passa para o Anexo III
+  const isAnexoIII = clampedValue >= 100;
 
   const minAngle = -135;
   const maxAngle = 135;
+  // O ângulo do ponteiro é calculado com base no valor clampado (0 a 100%)
   const currentAngle = minAngle + (clampedValue / 100) * (maxAngle - minAngle);
 
   return (
@@ -30,7 +31,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
           }}
         />
 
-        {/* Arco do Progresso */}
+        {/* Arco do Progresso (A barra colorida que vai de 0 a 28) */}
         <svg viewBox="0 0 200 200" className="w-48 h-48 transform -rotate-90">
           <circle
             cx="100"
@@ -40,14 +41,14 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
             stroke={isAnexoIII ? "#10B981" : "#EF4444"}
             strokeWidth="14"
             strokeDasharray={440}
-            // CORREÇÃO 2: A barra usa a meta (28) como 100%, em vez de usar 100
+            // Cálculo corrigido: a barra usa os 28% como 100% do preenchimento
             strokeDashoffset={440 - (clampedValue / 100) * 330}
             strokeLinecap="round"
             className="transition-all duration-1000 ease-out"
           />
         </svg>
 
-        {/* Ponteiro */}
+        {/* Ponteiro (Agora com rotação baseada no ângulo correto) */}
         <div 
           className="absolute w-full h-full flex items-center justify-center transition-transform duration-1000 ease-out"
           style={{ transform: `rotate(${currentAngle}deg)` }}

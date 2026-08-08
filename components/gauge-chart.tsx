@@ -3,14 +3,20 @@
 import React from "react";
 
 interface GaugeChartProps {
-  value: number; // Passe em porcentagem simples: 25 para 25%, 28 para 28%, 50 para 50%, etc.
+  /** 
+   * Aceita tanto porcentagem inteira (ex: 24.6) quanto fração decimal (ex: 0.246).
+   */
+  value: number;
   target?: number; // Padrão: 28%
 }
 
 export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
+  // Trata a conversão de decimal (ex: 0.246) para porcentagem (24.6) se necessário
+  const displayValue = value > 0 && value <= 1 ? value * 100 : value;
+  
   // Garante que o valor fique no intervalo [0, 100]
-  const normalizedValue = Math.min(Math.max(value, 0), 100);
-  const isAnexoIII = value >= target;
+  const normalizedValue = Math.min(Math.max(displayValue, 0), 100);
+  const isAnexoIII = normalizedValue >= target;
 
   // Parâmetros de dimensão do velocímetro
   const size = 220;
@@ -30,7 +36,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
   const redDash = (totalDash * target) / 100;
   const greenDash = totalDash - redDash;
 
-  // Ângulo exato do ponteiro para a porcentagem passada em `value`
+  // Ângulo exato do ponteiro para a porcentagem normalizada
   const pointerAngle = startAngle + (normalizedValue / 100) * angleRange;
 
   // Posição exata do pin/marcador do target (28%)
@@ -104,7 +110,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
           <div className="w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white shadow-md"></div>
         </div>
 
-        {/* 4. PONTEIRO / AGULHA (Aponta para o `value` informado) */}
+        {/* 4. PONTEIRO / AGULHA */}
         <div
           className="absolute z-20 pointer-events-none transition-transform duration-500 ease-out flex items-center justify-start"
           style={{
@@ -112,7 +118,7 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
             height: "4px",
             left: center,
             top: center - 2,
-            transformOrigin: "0% 50%", // Rota a partir do centro
+            transformOrigin: "0% 50%",
             transform: `rotate(${pointerAngle}deg)`,
           }}
         >
@@ -123,10 +129,10 @@ export function GaugeChart({ value, target = 28 }: GaugeChartProps) {
           </div>
         </div>
 
-        {/* 5. Miolo Central com o Valor */}
+        {/* 5. Miolo Central com o Valor Corrigido */}
         <div className="absolute inset-0 m-auto w-32 h-32 rounded-full bg-slate-800 flex flex-col items-center justify-center text-white shadow-lg z-30">
           <span className="text-2xl font-extrabold tracking-tight">
-            {value.toFixed(2).replace(".", ",")}%
+            {normalizedValue.toFixed(2).replace(".", ",")}%
           </span>
           <span className="text-[10px] uppercase font-medium tracking-wider text-slate-300 mt-0.5">
             Fator R

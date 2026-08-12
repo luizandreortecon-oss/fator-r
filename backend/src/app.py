@@ -2,7 +2,53 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+import jwt
+import bcrypt
+import sqlite3
+from datetime import datetime, timedelta
 
+# ========== BANCO DE DADOS ==========
+DB_PATH = os.path.join(os.path.dirname(__file__), '../database.db')
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ========== FUNÇÕES DE AUTENTICAÇÃO ==========
+def hash_password(password):
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def check_password(password, password_hash):
+    return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
+
+def generate_token(user_id, email):
+    JWT_SECRET = os.getenv('JWT_SECRET', 'chave-secreta-temporaria')
+    JWT_EXPIRES_IN = 7
+    payload = {
+        'user_id': user_id,
+        'email': email,
+        'exp': datetime.utcnow() + timedelta(days=JWT_EXPIRES_IN)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
 load_dotenv()
 
 app = Flask(__name__)

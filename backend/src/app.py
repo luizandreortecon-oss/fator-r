@@ -7,6 +7,11 @@ import bcrypt
 import sqlite3
 from datetime import datetime, timedelta
 
+load_dotenv()
+
+app = Flask(__name__)
+CORS(app)
+
 # ========== BANCO DE DADOS ==========
 DB_PATH = os.path.join(os.path.dirname(__file__), '../database.db')
 
@@ -49,11 +54,8 @@ def generate_token(user_id, email):
         'exp': datetime.utcnow() + timedelta(days=JWT_EXPIRES_IN)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm='HS256')
-load_dotenv()
 
-app = Flask(__name__)
-CORS(app)
-
+# ========== ROTAS PÚBLICAS ==========
 @app.route('/api/teste', methods=['GET'])
 def teste():
     return jsonify({
@@ -104,13 +106,24 @@ def calcular():
 def health():
     return jsonify({'status': 'OK'})
 
+# ========== ROTAS DE AUTENTICAÇÃO (ATUALIZADAS) ==========
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
-        dados = request.json
+        # 🔍 DEBUG: Mostra o que o servidor está recebendo
+        print("Dados recebidos (RAW):", request.data)
+        print("Dados recebidos (JSON):", request.json)
+        
+        dados = request.get_json(force=True)  # Força a leitura como JSON
+        
+        if not dados:
+            return jsonify({'erro': 'Nenhum dado enviado'}), 400
+        
         email = dados.get('email')
         password = dados.get('password')
-        full_name = dados.get('full_name')
+        full_name = dados.get('fullName')
+        
+        print(f"Email: {email}, Password: {password}, FullName: {full_name}")
         
         if not email or not password or not full_name:
             return jsonify({'erro': 'Email, senha e nome são obrigatórios'}), 400
@@ -146,14 +159,21 @@ def register():
         }), 201
         
     except Exception as e:
+        print(f"❌ Erro no registro: {str(e)}")
         return jsonify({'erro': f'Erro ao registrar: {str(e)}'}), 500
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     try:
-        dados = request.json
+        dados = request.get_json(force=True)
+        
+        if not dados:
+            return jsonify({'erro': 'Nenhum dado enviado'}), 400
+        
         email = dados.get('email')
         password = dados.get('password')
+        
+        print(f"Login - Email: {email}, Password: {password}")
         
         if not email or not password:
             return jsonify({'erro': 'Email e senha são obrigatórios'}), 400
@@ -185,7 +205,9 @@ def login():
         })
         
     except Exception as e:
+        print(f"❌ Erro no login: {str(e)}")
         return jsonify({'erro': f'Erro ao fazer login: {str(e)}'}), 500
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     app.run(host='0.0.0.0', port=port)

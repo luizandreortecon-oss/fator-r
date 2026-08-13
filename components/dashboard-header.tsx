@@ -1,18 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { Calculator, LogIn, UserPlus, X, Lock } from "lucide-react"
-import { API_URL } from "@/lib/api"
+import { Calculator, LogIn, X, Lock } from "lucide-react"
+
+// Importação com caminho relativo para não dar erro de alias na Vercel
+import { API_URL } from "../lib/api"
 
 export function DashboardHeader() {
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [isRegister, setIsRegister] = useState(false) // Alterna entre Login e Cadastro
+  const [isRegister, setIsRegister] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [fullName, setFullName] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault()
     setLoading(true)
 
@@ -34,18 +36,16 @@ export function DashboardHeader() {
         return
       }
 
-      // Salva o token retornado pelo backend Python
       if (data.token) {
         localStorage.setItem("token", data.token)
       }
 
       alert(isRegister ? "Conta criada com sucesso!" : "Login efetuado com sucesso!")
       setIsModalOpen(false)
-      // Recarrega para atualizar estados se necessário
       window.location.reload()
     } catch (error) {
       console.error("Erro na requisição:", error)
-      alert("Erro ao conectar com o servidor. Tente novamente.")
+      alert("Erro ao conectar com o servidor.")
     } finally {
       setLoading(false)
     }
@@ -55,7 +55,6 @@ export function DashboardHeader() {
     <>
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          {/* Título e Ícone */}
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Calculator className="h-6 w-6" aria-hidden />
@@ -70,7 +69,6 @@ export function DashboardHeader() {
             </div>
           </div>
 
-          {/* Botão de Abrir o Login */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsModalOpen(true)}
@@ -83,11 +81,9 @@ export function DashboardHeader() {
         </div>
       </header>
 
-      {/* MODAL DE LOGIN / CADASTRO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
-            {/* Fechar Modal */}
             <button
               onClick={() => setIsModalOpen(false)}
               className="absolute right-4 top-4 text-muted-foreground hover:text-card-foreground"
@@ -95,7 +91,6 @@ export function DashboardHeader() {
               <X className="h-5 w-5" />
             </button>
 
-            {/* Cabeçalho do Modal */}
             <div className="mb-6 flex items-center gap-2">
               <Lock className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-bold text-card-foreground">
@@ -103,7 +98,6 @@ export function DashboardHeader() {
               </h2>
             </div>
 
-            {/* Formulário */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
                 <div>
@@ -158,7 +152,6 @@ export function DashboardHeader() {
               </button>
             </form>
 
-            {/* Alternar entre Login e Cadastro */}
             <div className="mt-4 text-center text-sm text-muted-foreground">
               {isRegister ? (
                 <p>

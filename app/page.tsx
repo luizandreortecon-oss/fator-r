@@ -10,22 +10,35 @@ import { RecommendationPanel } from "@/components/recommendation-panel"
 import { calcularResumo, monthlyData } from "@/lib/fator-r-data"
 
 export default function Page() {
-  // 1. Estado inicial com os dados padrão
   const [resumo, setResumo] = useState(calcularResumo(monthlyData))
   const [faturamento, setFaturamento] = useState<string>('')
   const [massaSalarial, setMassaSalarial] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  // 2. Função para chamar o backend em Python no Render
+  // 🛠️ Função que trata inputs no formato brasileiro (troca vírgula por ponto)
+  const parseInputNumber = (val: string): number => {
+    if (!val) return 0
+    const cleanVal = val.replace(/\./g, '').replace(',', '.')
+    const parsed = parseFloat(cleanVal)
+    return isNaN(parsed) ? 0 : parsed
+  }
+
   const handleCalcular = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErro(null)
 
     try {
-      // ⚠️ SUBSTITUA PELA SUA URL DO RENDER
       const API_URL = 'https://fator-r.onrender.com/api/calcular'
+
+      // Converte corretamente os textos digitados em números válidos
+      const fatNum = parseInputNumber(faturamento)
+      const massaNum = parseInputNumber(massaSalarial)
+
+      if (fatNum <= 0) {
+        throw new Error('Informe um faturamento válido maior que zero.')
+      }
 
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -33,8 +46,8 @@ export default function Page() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          faturamento: Number(faturamento),
-          massa_salarial: Number(massaSalarial),
+          faturamento: fatNum,
+          massa_salarial: massaNum,
         }),
       })
 
@@ -44,12 +57,12 @@ export default function Page() {
         throw new Error(data.erro || 'Erro ao realizar o cálculo')
       }
 
-      // 3. Mapeia a resposta da API do Python para o formato que os componentes React esperam
+      // Mapeamento corrigido dos dados
       setResumo({
-        fatorR: data.fator_r,
+        fatorR: data.fator_r / 100, // Converte 35 para 0.35 para o KpiCards exibir 35,00%
         anexo: data.anexo,
         enquadrado: data.enquadrado,
-        meta: data.meta,
+        meta: data.meta / 100,
         ajusteNecessario: data.ajuste_necessario,
         faturamentoTotal: data.faturamento,
         massaSalarialTotal: data.massa_salarial,
@@ -62,6 +75,9 @@ export default function Page() {
       setLoading(false)
     }
   }
+
+  // Garante que o velocímetro receba a porcentagem inteira (ex: 35)
+  const gaugeValue = resumo.fatorR <= 1 ? resumo.fatorR * 100 : resumo.fatorR
 
   return (
     <main className="min-h-screen bg-background">
@@ -84,8 +100,8 @@ export default function Page() {
                 Faturamento (12m)
               </label>
               <input
-                type="number"
-                placeholder="Ex: 100000"
+                type="text"
+                placeholder="Ex: 200000,00"
                 value={faturamento}
                 onChange={(e) => setFaturamento(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -98,8 +114,8 @@ export default function Page() {
                 Massa Salarial (12m)
               </label>
               <input
-                type="number"
-                placeholder="Ex: 28000"
+                type="text"
+                placeholder="Ex: 70000,00"
                 value={massaSalarial}
                 onChange={(e) => setMassaSalarial(e.target.value)}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -136,7 +152,7 @@ export default function Page() {
               </p>
             </div>
             <div className="flex flex-1 items-center justify-center">
-              <GaugeChart value={resumo.fatorR} />
+              <GaugeChart value={gaugeValue} />
             </div>
           </div>
         </div>

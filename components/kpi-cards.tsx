@@ -1,90 +1,113 @@
-import { TrendingUp, Wallet, Users, Gauge, ArrowUpRight, ArrowDownRight } from "lucide-react"
-import { type FatorRResumo, formatBRL, formatPercent } from "@/lib/fator-r-data"
+import { ArrowUpRight, ArrowDownRight, Gauge, Users, TrendingUp } from "lucide-react"
 
-type KpiCardsProps = {
-  resumo: FatorRResumo
+interface Resumo {
+  fatorR: number
+  anexo: string
+  enquadrado: boolean
+  meta: number
+  faturamentoTotal: number
+  massaSalarialTotal: number
+}
+
+interface KpiCardsProps {
+  resumo: Resumo
 }
 
 export function KpiCards({ resumo }: KpiCardsProps) {
-  const { fatorR, isAnexoIII, faturamentoAcumulado, massaSalarialAcumulada } = resumo
+  const isAnexo3 = resumo.anexo === "Anexo III" || resumo.enquadrado
+
+  // Formatação de moeda BRL
+  const formatCurrency = (val: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0,
+    }).format(val || 0)
+  }
+
+  // Formatação de Porcentagem
+  const formatPercent = (val: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "percent",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(val || 0)
+  }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {/* Fator R Atual */}
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* 1. Fator R Atual */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Fator R Atual</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-primary">
-            <Gauge className="h-5 w-5" aria-hidden />
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Fator R Atual</span>
+          <div className="rounded-full bg-secondary p-2 text-secondary-foreground">
+            <Gauge className="h-4 w-4" />
+          </div>
         </div>
-        <p className="mt-3 font-mono text-3xl font-bold tabular-nums text-foreground">
-          {formatPercent(fatorR)}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">Meta de enquadramento: 28,00%</p>
+        <div className="mt-3">
+          <div className="text-2xl font-bold tracking-tight text-foreground">
+            {formatPercent(resumo.fatorR)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Meta de enquadramento: {formatPercent(resumo.meta || 0.28)}
+          </p>
+        </div>
       </div>
 
-      {/* Status do Enquadramento */}
+      {/* 2. Status do Enquadramento (Com Cor Dinâmica: Azul para Anexo III, Vermelho para Anexo V) */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Status do Enquadramento</span>
-          <span
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-              isAnexoIII ? "bg-success/15 text-success" : "bg-danger/15 text-danger"
-            }`}
-          >
-            {isAnexoIII ? (
-              <ArrowUpRight className="h-5 w-5" aria-hidden />
-            ) : (
-              <ArrowDownRight className="h-5 w-5" aria-hidden />
-            )}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Status do Enquadramento</span>
+          <div className={`rounded-full p-2 ${isAnexo3 ? "bg-blue-500/10 text-blue-500" : "bg-red-500/10 text-red-500"}`}>
+            {isAnexo3 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+          </div>
         </div>
         <div className="mt-3">
           <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${
-              isAnexoIII
-                ? "bg-success text-success-foreground"
-                : "bg-danger text-danger-foreground"
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+              isAnexo3
+                ? "bg-blue-600 text-white border border-blue-500"
+                : "bg-red-500/15 text-red-500 border border-red-500/30"
             }`}
           >
-            {isAnexoIII ? "Anexo III" : "Anexo V"}
+            {resumo.anexo || (isAnexo3 ? "Anexo III" : "Anexo V")}
           </span>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {isAnexo3 ? "Alíquota reduzida (Ideal)" : "Alíquota cheia (Atenção)"}
+          </p>
         </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {isAnexoIII ? "Alíquota reduzida" : "Alíquota cheia"}
-        </p>
       </div>
 
-      {/* Faturamento Acumulado */}
+      {/* 3. Faturamento (12 meses) */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Faturamento (12 meses)</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-primary">
-            <TrendingUp className="h-5 w-5" aria-hidden />
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Faturamento (12 meses)</span>
+          <div className="rounded-full bg-secondary p-2 text-secondary-foreground">
+            <TrendingUp className="h-4 w-4" />
+          </div>
         </div>
-        <p className="mt-3 font-mono text-3xl font-bold tabular-nums text-foreground">
-          {formatBRL(faturamentoAcumulado, { compact: true })}
-        </p>
-        <p className="mt-1 text-xs text-muted-foreground">{formatBRL(faturamentoAcumulado)}</p>
+        <div className="mt-3">
+          <div className="text-2xl font-bold tracking-tight text-foreground">
+            {formatCurrency(resumo.faturamentoTotal)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Receita Bruta Acumulada</p>
+        </div>
       </div>
 
-      {/* Massa Salarial Acumulada */}
+      {/* 4. Massa Salarial (12 meses) */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted-foreground">Massa Salarial (12 meses)</span>
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-primary">
-            <Users className="h-5 w-5" aria-hidden />
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Massa Salarial (12 meses)</span>
+          <div className="rounded-full bg-secondary p-2 text-secondary-foreground">
+            <Users className="h-4 w-4" />
+          </div>
         </div>
-        <p className="mt-3 font-mono text-3xl font-bold tabular-nums text-foreground">
-          {formatBRL(massaSalarialAcumulada, { compact: true })}
-        </p>
-        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <Wallet className="h-3 w-3" aria-hidden />
-          Folha + Encargos + Pró-labore
-        </p>
+        <div className="mt-3">
+          <div className="text-2xl font-bold tracking-tight text-foreground">
+            {formatCurrency(resumo.massaSalarialTotal)}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Folha + Encargos + Pró-labore</p>
+        </div>
       </div>
     </div>
   )

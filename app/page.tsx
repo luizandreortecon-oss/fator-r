@@ -16,7 +16,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
-  // 🛠️ Função que trata inputs no formato brasileiro (troca vírgula por ponto)
+  // Tratamento de valores para formato numérico
   const parseInputNumber = (val: string): number => {
     if (!val) return 0
     const cleanVal = val.replace(/\./g, '').replace(',', '.')
@@ -32,7 +32,6 @@ export default function Page() {
     try {
       const API_URL = 'https://fator-r.onrender.com/api/calcular'
 
-      // Converte corretamente os textos digitados em números válidos
       const fatNum = parseInputNumber(faturamento)
       const massaNum = parseInputNumber(massaSalarial)
 
@@ -57,16 +56,16 @@ export default function Page() {
         throw new Error(data.erro || 'Erro ao realizar o cálculo')
       }
 
-      // Mapeamento corrigido dos dados
+      // Atualização do estado com fallbacks para evitar "NaN"
       setResumo({
-        fatorR: data.fator_r / 100, // Converte 35 para 0.35 para o KpiCards exibir 35,00%
+        fatorR: (data.fator_r !== undefined ? data.fator_r : (massaNum / fatNum) * 100) / 100,
         anexo: data.anexo,
         enquadrado: data.enquadrado,
-        meta: data.meta / 100,
-        ajusteNecessario: data.ajuste_necessario,
-        faturamentoTotal: data.faturamento,
-        massaSalarialTotal: data.massa_salarial,
-        diferencaMassa: data.ajuste_necessario,
+        meta: (data.meta !== undefined ? data.meta : 28) / 100,
+        ajusteNecessario: data.ajuste_necessario ?? Math.max(0, fatNum * 0.28 - massaNum),
+        faturamentoTotal: data.faturamento ?? fatNum,
+        massaSalarialTotal: data.massa_salarial ?? massaNum,
+        diferencaMassa: data.ajuste_necessario ?? Math.max(0, fatNum * 0.28 - massaNum),
       } as any)
 
     } catch (err: any) {
@@ -76,7 +75,6 @@ export default function Page() {
     }
   }
 
-  // Garante que o velocímetro receba a porcentagem inteira (ex: 35)
   const gaugeValue = resumo.fatorR <= 1 ? resumo.fatorR * 100 : resumo.fatorR
 
   return (
@@ -85,7 +83,7 @@ export default function Page() {
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         
-        {/* Formulário de Simulação Rápida */}
+        {/* Formulário */}
         <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
           <h2 className="mb-1 text-base font-semibold text-card-foreground">
             Simulação Direta de Fator R
@@ -137,10 +135,10 @@ export default function Page() {
           )}
         </div>
 
-        {/* KPIs dinâmicos */}
+        {/* KPIs */}
         <KpiCards resumo={resumo} />
 
-        {/* Upload + Velocímetro */}
+        {/* Upload + Gauge */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <UploadArea />
 
@@ -157,7 +155,7 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Recomendação inteligente */}
+        {/* Recomendações */}
         <RecommendationPanel resumo={resumo} />
 
         {/* Evolução mensal */}

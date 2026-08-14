@@ -14,7 +14,14 @@ interface KpiCardsProps {
 }
 
 export function KpiCards({ resumo }: KpiCardsProps) {
-  const isAnexo3 = resumo.anexo === "Anexo III" || resumo.enquadrado
+  // Trata todas as variações vindas do backend ("III", "Anexo III", "V", "Anexo V")
+  const isAnexo3 =
+    resumo.anexo === "Anexo III" ||
+    resumo.anexo === "III" ||
+    resumo.enquadrado === true
+
+  // Garante a nomenclatura completa "Anexo III" ou "Anexo V"
+  const displayAnexo = isAnexo3 ? "Anexo III" : "Anexo V"
 
   // Formatação de moeda BRL
   const formatCurrency = (val: number) => {
@@ -54,7 +61,7 @@ export function KpiCards({ resumo }: KpiCardsProps) {
         </div>
       </div>
 
-      {/* 2. Status do Enquadramento (Com Cor Dinâmica: Azul para Anexo III, Vermelho para Anexo V) */}
+      {/* 2. Status do Enquadramento (Padronizado) */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground">Status do Enquadramento</span>
@@ -64,13 +71,13 @@ export function KpiCards({ resumo }: KpiCardsProps) {
         </div>
         <div className="mt-3">
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors ${
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white shadow-sm transition-colors ${
               isAnexo3
-                ? "bg-blue-600 text-white border border-blue-500"
-                : "bg-red-500/15 text-red-500 border border-red-500/30"
+                ? "bg-blue-600 border border-blue-500"
+                : "bg-red-600 border border-red-500"
             }`}
           >
-            {resumo.anexo || (isAnexo3 ? "Anexo III" : "Anexo V")}
+            {displayAnexo}
           </span>
           <p className="mt-2 text-xs text-muted-foreground">
             {isAnexo3 ? "Alíquota reduzida (Ideal)" : "Alíquota cheia (Atenção)"}

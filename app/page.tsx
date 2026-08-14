@@ -25,7 +25,7 @@ export default function Page() {
 
     try {
       // ⚠️ SUBSTITUA PELA SUA URL DO RENDER
-      const API_URL = 'https://SUA-API-NO-RENDER.onrender.com/api/calcular'
+      const API_URL = 'https://fator-r-backend.onrender.com/api/calcular'
 
       const response = await fetch(API_URL, {
         method: 'POST',

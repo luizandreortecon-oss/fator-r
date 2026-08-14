@@ -1,13 +1,17 @@
 import { AlertTriangle, CheckCircle2, Target, TrendingUp, Wallet, ShieldCheck } from "lucide-react"
 
 interface Resumo {
-  fatorR: number
-  anexo: string
-  enquadrado: boolean
-  meta: number
+  fatorR?: number
+  anexo?: string
+  enquadrado?: boolean
+  meta?: number
   ajusteNecessario?: number
-  faturamentoTotal: number
-  massaSalarialTotal: number
+  ajuste_necessario?: number
+  faturamentoTotal?: number
+  faturamento?: number
+  massaSalarialTotal?: number
+  massaSalarial?: number
+  massa_salarial?: number
   diferencaMassa?: number
 }
 
@@ -16,39 +20,47 @@ interface RecommendationPanelProps {
 }
 
 export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
-  const fatTotal = resumo.faturamentoTotal || 0
-  const massaTotal = resumo.massaSalarialTotal || 0
-  const fatorR = resumo.fatorR || 0
+  // Extração defensiva com fallbacks contra qualquer valor indefinido
+  const fatTotal = Number(resumo.faturamentoTotal ?? resumo.faturamento ?? 0)
+  const massaTotal = Number(resumo.massaSalarialTotal ?? resumo.massaSalarial ?? resumo.massa_salarial ?? 0)
+  const fatorR = Number(resumo.fatorR ?? 0)
+  const ajusteReq = Number(resumo.ajusteNecessario ?? resumo.ajuste_necessario ?? resumo.diferencaMassa ?? 0)
 
-  // Identifica se a empresa está no Anexo III (Meta de 28% atingida)
+  // Verifica se está enquadrado no Anexo III
   const isAnexo3 =
     resumo.anexo === "Anexo III" ||
     resumo.anexo === "III" ||
     resumo.enquadrado === true ||
     fatorR >= 0.28
 
-  // Cálculos automáticos de suporte
+  // Cálculos das metas
   const metaMassaAnual = fatTotal * 0.28
   const metaMassaMensal = metaMassaAnual / 12
-  const ajusteAnual = Math.max(0, metaMassaAnual - massaTotal)
+  const ajusteAnual = ajusteReq > 0 ? ajusteReq : Math.max(0, metaMassaAnual - massaTotal)
   const margemSeguranca = Math.max(0, massaTotal - metaMassaAnual)
 
-  // Formatação de Moedas sem risco de NaN
-  const formatCurrency = (val: number) => {
+  // Formatação de moeda BRL blindada contra NaN
+  const formatCurrency = (val: any) => {
+    const num = typeof val === "number" ? val : parseFloat(val)
+    const safeNum = isNaN(num) || !isFinite(num) ? 0 : num
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
       minimumFractionDigits: 2,
-    }).format(isNaN(val) ? 0 : val)
+      maximumFractionDigits: 2,
+    }).format(safeNum)
   }
 
-  // Formatação de Porcentagem
-  const formatPercent = (val: number) => {
-    const p = val <= 1 ? val : val / 100
+  // Formatação de porcentagem blindada
+  const formatPercent = (val: any) => {
+    const num = typeof val === "number" ? val : parseFloat(val)
+    const safeNum = isNaN(num) || !isFinite(num) ? 0 : num
+    const p = safeNum <= 1 ? safeNum : safeNum / 100
     return new Intl.NumberFormat("pt-BR", {
       style: "percent",
       minimumFractionDigits: 2,
-    }).format(isNaN(p) ? 0 : p)
+      maximumFractionDigits: 2,
+    }).format(p)
   }
 
   return (
@@ -59,7 +71,7 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
           : "border-amber-500/30 bg-amber-950/20 text-amber-100"
       }`}
     >
-      {/* Cabeçalho do Alerta / Sucesso */}
+      {/* Cabeçalho */}
       <div className="flex items-start gap-3">
         <div
           className={`rounded-lg p-2.5 ${
@@ -77,7 +89,7 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
           <h3 className="text-base font-semibold text-foreground">
             {isAnexo3
               ? "Excelente! Empresa enquadrada no Anexo III"
-              : "Atenção: Risco de tributação pelo Anexo V"}
+              : "Atenção: risco de Anexo V"}
           </h3>
           <p className="text-sm opacity-90 leading-relaxed text-muted-foreground">
             {isAnexo3 ? (
@@ -93,17 +105,17 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
               <>
                 Para migrar para o <strong className="text-foreground">Anexo III</strong> (alíquota reduzida),
                 você precisa ajustar a folha/pró-labore em{" "}
-                <strong className="text-red-400">
-                  {formatCurrency(resumo.ajusteNecessario || ajusteAnual)}
+                <strong className="text-red-500 font-bold">
+                  {formatCurrency(ajusteAnual)}
                 </strong>{" "}
-                nos últimos 12 meses acumulados.
+                nos próximos 12 meses acumulados.
               </>
             )}
           </p>
         </div>
       </div>
 
-      {/* Cartões Informativos Inferiores */}
+      {/* Cartões Inferiores */}
       <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Card 1 */}
         <div className="rounded-lg border border-border/40 bg-card/60 p-3.5 backdrop-blur-sm">
@@ -118,7 +130,7 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             {isAnexo3
-              ? "Valor acumulado acima do limite de 28%"
+              ? "Valor acumulado acima dos 28%"
               : "Média mensal para enquadramento"}
           </p>
         </div>
@@ -127,13 +139,13 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
         <div className="rounded-lg border border-border/40 bg-card/60 p-3.5 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1">
             <TrendingUp className="h-3.5 w-3.5 text-primary" />
-            <span>Faturamento Acumulado (12m)</span>
+            <span>Faturamento projetado</span>
           </div>
           <div className="text-lg font-bold text-foreground">
             {formatCurrency(fatTotal)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Base de cálculo do Fator R
+            Base de cálculo (12m)
           </p>
         </div>
 
@@ -145,13 +157,13 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
             ) : (
               <Wallet className="h-3.5 w-3.5 text-amber-400" />
             )}
-            <span>Massa Salarial Atual (12m)</span>
+            <span>Massa salarial atual</span>
           </div>
           <div className="text-lg font-bold text-foreground">
             {formatCurrency(massaTotal)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Folha + Encargos + Pró-labore
+            Folha + Encargos + Pró-labore (12m)
           </p>
         </div>
       </div>

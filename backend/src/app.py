@@ -1,3 +1,4 @@
+from pgdas_parser import extrair_dados_pgdas
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
@@ -105,7 +106,38 @@ def calcular():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'OK'})
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'sucesso': False, 'erro': 'Nenhum arquivo enviado'}), 400
+    
+    file = request.files['file']
+    modo = request.form.get('modo', 'carga_inicial')
 
+    if file.filename == '':
+        return jsonify({'sucesso': False, 'erro': 'Nenhum arquivo selecionado'}), 400
+
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'sucesso': False, 'erro': 'Por enquanto, envie apenas o arquivo PDF do PGDAS'}), 400
+
+    try:
+        pdf_bytes = file.read()
+        dados = extrair_dados_pgdas(pdf_bytes)
+
+        return jsonify({
+            'sucesso': True,
+            'faturamento': dados['faturamentoTotal'],
+            'massa_salarial': dados['massaSalarialTotal'],
+            'fator_r': dados['fatorR'],
+            'enquadrado': dados['enquadrado'],
+            'anexo': dados['anexo'],
+            'periodo_apuracao': dados['periodo_apuracao'],
+            'detalhes_mensais': dados['detalhesMensais'],
+            'modo': modo
+        }), 200
+
+    except Exception as e:
+        return jsonify({'sucesso': False, 'erro': f'Erro no processamento: {str(e)}'}), 400
 # ========== ROTAS DE AUTENTICAÇÃO (ATUALIZADAS) ==========
 @app.route('/api/auth/register', methods=['POST'])
 def register():

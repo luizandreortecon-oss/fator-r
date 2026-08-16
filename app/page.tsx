@@ -8,7 +8,20 @@ import { GaugeChart } from "@/components/gauge-chart"
 import { MonthlyBarChart } from "@/components/monthly-bar-chart"
 import { RecommendationPanel } from "@/components/recommendation-panel"
 import { calcularResumo, monthlyData } from "@/lib/fator-r-data"
+const RESUMO_ZERADO = {
+  fatorR: 0,
+  anexo: "Anexo V",
+  enquadrado: false,
+  meta: 0.28,
+  ajusteNecessario: 0,
+  faturamentoTotal: 0,
+  massaSalarialTotal: 0,
+  diferencaMassa: 0,
+}
 
+export default function Page() {
+  const [resumo, setResumo] = useState(RESUMO_ZERADO)
+  // ... resto do código
 export default function Page() {
   const [resumo, setResumo] = useState(calcularResumo(monthlyData))
   const [faturamento, setFaturamento] = useState<string>('')

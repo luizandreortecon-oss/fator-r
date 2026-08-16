@@ -106,6 +106,8 @@ def calcular():
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'OK'})
+
+# ========== ROTA DE UPLOAD (ATUALIZADA) ==========
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -113,40 +115,41 @@ def upload_file():
     
     file = request.files['file']
     modo = request.form.get('modo', 'carga_inicial')
+    tipo_esperado = request.form.get('tipo_esperado', 'auto') # Captura o botão do Next.js
 
     if file.filename == '':
         return jsonify({'sucesso': False, 'erro': 'Nenhum arquivo selecionado'}), 400
 
-    if not file.filename.lower().endswith('.pdf'):
-        return jsonify({'sucesso': False, 'erro': 'Por enquanto, envie apenas o arquivo PDF do PGDAS'}), 400
-
     try:
         pdf_bytes = file.read()
-        dados = extrair_dados_pgdas(pdf_bytes)
+        
+        # Envia o arquivo e o tipo selecionado para validação no pgdas_parser
+        dados = processar_documento_geral(pdf_bytes, tipo_esperado=tipo_esperado)
 
         return jsonify({
             'sucesso': True,
-            'faturamento': dados['faturamentoTotal'],
-            'massa_salarial': dados['massaSalarialTotal'],
-            'fator_r': dados['fatorR'],
-            'enquadrado': dados['enquadrado'],
-            'anexo': dados['anexo'],
-            'periodo_apuracao': dados['periodo_apuracao'],
-            'detalhes_mensais': dados['detalhesMensais'],
+            'tipo_documento': dados.get('tipo_documento'),
+            'faturamento': dados.get('faturamentoTotal') or dados.get('faturamentoMes') or 0,
+            'massa_salarial': dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0,
+            'fator_r': dados.get('fatorR', 0),
+            'enquadrado': dados.get('enquadrado', False),
+            'anexo': dados.get('anexo', ''),
+            'periodo_apuracao': dados.get('periodo_apuracao', ''),
+            'detalhes_mensais': dados.get('detalhesMensais', []),
             'modo': modo
         }), 200
 
+    except ValueError as e:
+        # Captura mensagens de validação (ex: arquivo diferente do botão selecionado)
+        return jsonify({'sucesso': False, 'erro': str(e)}), 400
     except Exception as e:
-        return jsonify({'sucesso': False, 'erro': f'Erro no processamento: {str(e)}'}), 400
-# ========== ROTAS DE AUTENTICAÇÃO (ATUALIZADAS) ==========
+        return jsonify({'sucesso': False, 'erro': f'Erro no processamento: {str(e)}'}), 500
+
+# ========== ROTAS DE AUTENTICAÇÃO ==========
 @app.route('/api/auth/register', methods=['POST'])
 def register():
     try:
-        # 🔍 DEBUG: Mostra o que o servidor está recebendo
-        print("Dados recebidos (RAW):", request.data)
-        print("Dados recebidos (JSON):", request.json)
-        
-        dados = request.get_json(force=True)  # Força a leitura como JSON
+        dados = request.get_json(force=True)
         
         if not dados:
             return jsonify({'erro': 'Nenhum dado enviado'}), 400
@@ -154,8 +157,6 @@ def register():
         email = dados.get('email')
         password = dados.get('password')
         full_name = dados.get('fullName')
-        
-        print(f"Email: {email}, Password: {password}, FullName: {full_name}")
         
         if not email or not password or not full_name:
             return jsonify({'erro': 'Email, senha e nome são obrigatórios'}), 400
@@ -191,7 +192,6 @@ def register():
         }), 201
         
     except Exception as e:
-        print(f"❌ Erro no registro: {str(e)}")
         return jsonify({'erro': f'Erro ao registrar: {str(e)}'}), 500
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -205,8 +205,6 @@ def login():
         email = dados.get('email')
         password = dados.get('password')
         
-        print(f"Login - Email: {email}, Password: {password}")
-        
         if not email or not password:
             return jsonify({'erro': 'Email e senha são obrigatórios'}), 400
         
@@ -218,10 +216,7 @@ def login():
         ).fetchone()
         conn.close()
         
-        if not user:
-            return jsonify({'erro': 'Email ou senha inválidos'}), 401
-        
-        if not check_password(password, user['password_hash']):
+        if not user or not check_password(password, user['password_hash']):
             return jsonify({'erro': 'Email ou senha inválidos'}), 401
         
         token = generate_token(user['id'], user['email'])
@@ -237,7 +232,6 @@ def login():
         })
         
     except Exception as e:
-        print(f"❌ Erro no login: {str(e)}")
         return jsonify({'erro': f'Erro ao fazer login: {str(e)}'}), 500
 
 if __name__ == '__main__':

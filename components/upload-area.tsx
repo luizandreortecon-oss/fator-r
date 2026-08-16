@@ -1,7 +1,19 @@
 'use client'
 
 import { useState, useRef } from "react"
-import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, X, RefreshCw, FileSpreadsheet } from "lucide-react"
+import { 
+  Upload, 
+  FileText, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  X, 
+  RefreshCw, 
+  FileSpreadsheet,
+  Users,
+  Landmark,
+  Receipt
+} from "lucide-react"
 
 interface UploadAreaProps {
   onDataExtracted?: (data: {
@@ -17,6 +29,7 @@ interface UploadAreaProps {
 
 export function UploadArea({ onDataExtracted }: UploadAreaProps) {
   const [modo, setModo] = useState<'carga_inicial' | 'atualizacao_mensal'>('carga_inicial')
+  const [tipoEsperado, setTipoEsperado] = useState<string>('auto')
   const [isDragging, setIsDragging] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -47,6 +60,12 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     if (e.target.files && e.target.files.length > 0) {
       validateAndSetFile(e.target.files[0])
     }
+  }
+
+  // Ação ao clicar em qualquer um dos 4 botões de atalho
+  const handleBotaoAtalho = (tipo: string) => {
+    setTipoEsperado(tipo)
+    fileInputRef.current?.click()
   }
 
   const validateAndSetFile = (selectedFile: File) => {
@@ -81,7 +100,10 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     try {
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("modo", modo) // Envia se é 'carga_inicial' ou 'atualizacao_mensal'
+      formData.append("modo", modo) // 'carga_inicial' ou 'atualizacao_mensal'
+      if (tipoEsperado && tipoEsperado !== 'auto') {
+        formData.append("tipo_esperado", tipoEsperado)
+      }
 
       const API_URL = "https://fator-r.onrender.com/api/upload"
 
@@ -128,6 +150,7 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
   const removeFile = () => {
     setFile(null)
     setStatus(null)
+    setTipoEsperado('auto')
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
@@ -139,12 +162,22 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
+  // Estilo visual dos botões de atalho
+  const getButtonClass = (tipo: string) => {
+    const isSelected = tipoEsperado === tipo
+    return `flex items-center gap-2.5 rounded-lg border p-3 text-left text-xs font-medium transition cursor-pointer ${
+      isSelected 
+        ? 'border-primary bg-primary/10 text-primary shadow-sm font-semibold' 
+        : 'border-border bg-card text-foreground hover:bg-muted/50 hover:border-primary/40'
+    }`
+  }
+
   return (
     <div className="flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-3">
-        <h2 className="text-base font-semibold text-card-foreground">Upload de Documentos</h2>
+        <h2 className="text-base font-semibold text-card-foreground">Envio de Documentos</h2>
         <p className="text-sm text-muted-foreground">
-          Escolha o tipo de importação para atualizar a janela dos últimos 12 meses.
+          Nossa IA lê seus arquivos e calcula o Fator R automaticamente.
         </p>
       </div>
 
@@ -153,7 +186,7 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         <button
           type="button"
           onClick={() => { setModo('carga_inicial'); removeFile(); }}
-          className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition ${
+          className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition cursor-pointer ${
             modo === 'carga_inicial'
               ? 'bg-card text-foreground shadow-sm font-semibold'
               : 'text-muted-foreground hover:text-foreground'
@@ -166,7 +199,7 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         <button
           type="button"
           onClick={() => { setModo('atualizacao_mensal'); removeFile(); }}
-          className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition ${
+          className={`flex items-center justify-center gap-1.5 rounded-md py-2 transition cursor-pointer ${
             modo === 'atualizacao_mensal'
               ? 'bg-card text-foreground shadow-sm font-semibold'
               : 'text-muted-foreground hover:text-foreground'
@@ -192,7 +225,7 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => { setTipoEsperado('auto'); fileInputRef.current?.click(); }}
           className={`flex flex-1 flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition cursor-pointer ${
             isDragging
               ? "border-primary bg-primary/10"
@@ -203,14 +236,10 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
             <Upload className="h-6 w-6" />
           </div>
           <p className="text-sm font-medium text-foreground">
-            {modo === 'carga_inicial'
-              ? "Envie o Extrato PGDAS-D ou Declaração dos 12 meses"
-              : "Envie a Guia do Simples (DAS) ou Folha do mês atual"}
+            Arraste e solte seus arquivos aqui
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {modo === 'carga_inicial'
-              ? "Extrai o histórico completo de faturamento e folha acumulados"
-              : "Adiciona o mês atual e descarta automaticamente o 13º mês mais antigo"}
+            ou clique para selecionar — PDF ou XML
           </p>
         </div>
       ) : (
@@ -223,14 +252,21 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
               </div>
               <div className="truncate">
                 <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
-                <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(file.size)}
+                  {tipoEsperado !== 'auto' && (
+                    <span className="ml-2 uppercase font-semibold text-primary">
+                      • {tipoEsperado}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
 
             {!uploading && (
               <button
                 onClick={removeFile}
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground transition cursor-pointer"
                 title="Remover arquivo"
               >
                 <X className="h-4 w-4" />
@@ -241,7 +277,7 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
           <button
             onClick={handleUpload}
             disabled={uploading}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer"
           >
             {uploading ? (
               <>
@@ -261,6 +297,45 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
           </button>
         </div>
       )}
+
+      {/* Botões de Atalho para Categorias de Documento */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => handleBotaoAtalho('pgdas')}
+          className={getButtonClass('pgdas')}
+        >
+          <FileText className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate">PGDAS-D</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleBotaoAtalho('folha')}
+          className={getButtonClass('folha')}
+        >
+          <Users className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate">Folha de Pagamento</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleBotaoAtalho('fgts')}
+          className={getButtonClass('fgts')}
+        >
+          <Landmark className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate">Guia FGTS / eSocial</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleBotaoAtalho('nfe')}
+          className={getButtonClass('nfe')}
+        >
+          <Receipt className="h-4 w-4 text-primary shrink-0" />
+          <span className="truncate">NFe / NFS-e</span>
+        </button>
+      </div>
 
       {/* Mensagens de Feedback */}
       {status && (

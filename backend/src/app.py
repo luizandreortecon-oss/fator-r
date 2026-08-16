@@ -1,4 +1,4 @@
-from pgdas_parser import extrair_dados_pgdas
+from pgdas_parser import processar_documento_geral
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os

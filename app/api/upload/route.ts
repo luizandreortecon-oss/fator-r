@@ -21,32 +21,74 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const stream = Readable.from(buffer);
+    // =========================================================
+    // 1. FAZ UPLOAD DO ARQUIVO PARA O GOOGLE DRIVE
+    // =========================================================
+    let driveLink = null;
+    let driveFileId = null;
 
-    const response = await drive.files.create({
-      requestBody: {
-        name: file.name,
-        parents: process.env.GOOGLE_DRIVE_FOLDER_ID ? [process.env.GOOGLE_DRIVE_FOLDER_ID] : [],
-      },
-      media: {
-        mimeType: file.type || 'application/pdf',
-        body: stream,
-      },
-      fields: 'id, name, webViewLink',
+    try {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const stream = Readable.from(buffer);
+
+      const driveResponse = await drive.files.create({
+        requestBody: {
+          name: file.name,
+          parents: process.env.GOOGLE_DRIVE_FOLDER_ID ? [process.env.GOOGLE_DRIVE_FOLDER_ID] : [],
+        },
+        media: {
+          mimeType: file.type || 'application/pdf',
+          body: stream,
+        },
+        fields: 'id, name, webViewLink',
+      });
+
+      driveFileId = driveResponse.data.id;
+      driveLink = driveResponse.data.webViewLink;
+    } catch (driveErr) {
+      console.error('Aviso: Não foi possível salvar no Google Drive:', driveErr);
+      // Continua a execução para tentar extrair os dados via Python mesmo se o Drive falhar
+    }
+
+    // =========================================================
+    // 2. ENVIA O ARQUIVO PARA O PYTHON NO RENDER (EXTRAI DADOS)
+    // =========================================================
+    const PYTHON_BACKEND_URL = process.env.NEXT_PUBLIC_API_URL 
+      ? `${process.env.NEXT_PUBLIC_API_URL}/api/upload`
+      : 'https://fator-r.onrender.com/api/upload';
+
+    const pythonResponse = await fetch(PYTHON_BACKEND_URL, {
+      method: 'POST',
+      body: formData,
     });
 
+    const parsedData = await pythonResponse.json();
+
+    if (!pythonResponse.ok) {
+      return NextResponse.json(
+        { 
+          sucesso: false, 
+          erro: parsedData.erro || 'Erro ao ler os dados do PDF no Python',
+          driveLink 
+        },
+        { status: pythonResponse.status }
+      );
+    }
+
+    // =========================================================
+    // 3. DEVOLVE TUDO AO FRONTEND (DADOS EXTRAÍDOS + LINKS DO DRIVE)
+    // =========================================================
     return NextResponse.json({
-      success: true,
-      fileId: response.data.id,
-      fileName: response.data.name,
-      link: response.data.webViewLink,
-    });
+      ...parsedData,
+      driveFileId,
+      driveLink,
+    }, { status: 200 });
+
   } catch (error: any) {
-    console.error('Erro no upload para o Google Drive:', error);
+    console.error('Erro no servidor ao processar upload:', error);
     return NextResponse.json(
-      { error: 'Falha ao realizar o upload', details: error.message },
+      { error: 'Falha geral ao realizar o upload', details: error.message },
       { status: 500 }
     );
   }

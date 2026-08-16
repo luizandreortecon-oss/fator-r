@@ -21,6 +21,10 @@ def identificar_tipo_documento(texto: str) -> str:
         return "pgdas"
     elif "FOLHA DE PAGAMENTO" in texto_upper or "PRÓ-LABORE" in texto_upper or "PRO-LABORE" in texto_upper or "RESUMO DA FOLHA" in texto_upper:
         return "folha"
+    elif "FGTS" in texto_upper or "ESOCIAL" in texto_upper or "GFIP" in texto_upper or "SEFIP" in texto_upper:
+        return "fgts"
+    elif "NOTA FISCAL" in texto_upper or "NFS-E" in texto_upper or "DANFE" in texto_upper or "NF-E" in texto_upper:
+        return "nfe"
     elif "DOCUMENTO DE ARRECADAÇÃO" in texto_upper or "DAS" in texto_upper or "PGDAS-D/DEFIS" in texto_upper:
         return "das"
     else:
@@ -83,7 +87,6 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
 
 def extrair_dados_folha(texto_completo: str) -> dict:
     """Extrai os valores da Folha de Pagamento / Pró-Labore do mês"""
-    # Regex para capturar Total da Folha ou Pró-Labore
     match_folha = re.search(r"(?:TOTAL|LIQUIDO|BRUTO|PRO-LABORE|PRÓ-LABORE)[^\n\r]*?([\d\.,]{4,})", texto_completo, re.IGNORECASE)
     massa_mes = parse_brl_float(match_folha.group(1)) if match_folha else 0.0
 
@@ -98,22 +101,26 @@ def extrair_dados_folha(texto_completo: str) -> dict:
 
 
 def extrair_dados_das(texto_completo: str) -> dict:
-    """Extrai faturamento/valor apurado da Guia DAS"""
-    match_faturamento = re.search(r"(?:Receita Bruta|Valor do Débito|Total Apurado)[^\n\r]*?([\d\.,]{4,})", texto_completo, re.IGNORECASE)
+    """Extrai faturamento/valor apurado da Guia DAS ou Guia FGTS"""
+    match_faturamento = re.search(r"(?:Receita Bruta|Valor do Débito|Total Apurado|TOTAL)[^\n\r]*?([\d\.,]{4,})", texto_completo, re.IGNORECASE)
     fat_mes = parse_brl_float(match_faturamento.group(1)) if match_faturamento else 0.0
 
     match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
     periodo = match_pa.group(1) if match_pa else "Atual"
 
     return {
-        "tipo_documento": "Guia DAS",
+        "tipo_documento": "Guia DAS / FGTS",
         "periodo_apuracao": periodo,
         "faturamentoMes": round(fat_mes, 2)
     }
 
 
-def processar_documento_geral(pdf_bytes: bytes) -> dict:
-    """Função principal que classifica e extrai os dados do PDF enviado"""
+def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> dict:
+    """
+    Função principal que classifica, valida e extrai os dados do PDF enviado.
+    Se tipo_esperado for informado (diferente de 'auto'), valida se o arquivo
+    corresponde à categoria selecionada pelo usuário no botão.
+    """
     texto_completo = ""
 
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -125,15 +132,49 @@ def processar_documento_geral(pdf_bytes: bytes) -> dict:
     if not texto_completo.strip():
         raise ValueError("Não foi possível ler o texto do PDF. O arquivo pode ser uma imagem escaneada.")
 
-    # 1. Identifica o tipo do documento
-    tipo = identificar_tipo_documento(texto_completo)
+    # 1. Identifica o tipo real do documento lido
+    tipo_detectado = identificar_tipo_documento(texto_completo)
 
-    # 2. Redireciona para o extrator adequado
-    if tipo == "pgdas":
+    # Nomes legíveis para exibir nas mensagens de erro
+    nomes_amigaveis = {
+        "pgdas": "PGDAS-D",
+        "folha": "Folha de Pagamento",
+        "fgts": "Guia FGTS / eSocial",
+        "nfe": "Nota Fiscal (NFe/NFS-e)",
+        "das": "Guia DAS",
+        "desconhecido": "Documento Não Reconhecido"
+    }
+
+    # 2. Validação: Se o usuário clicou em um botão específico (ex: 'pgdas')
+    tipo_esperado_clean = (tipo_esperado or "auto").lower().strip()
+    
+    if tipo_esperado_clean != "auto":
+        # Permite flexibilidade entre DAS/FGTS
+        is_compativel = (
+            tipo_detectado == tipo_esperado_clean or
+            (tipo_esperado_clean in ["fgts", "das"] and tipo_detectado in ["fgts", "das"])
+        )
+
+        if not is_compativel:
+            nome_esperado = nomes_amigaveis.get(tipo_esperado_clean, tipo_esperado_clean.upper())
+            nome_detectado = nomes_amigaveis.get(tipo_detectado, "Desconhecido")
+            raise ValueError(
+                f"Documento incorreto! Você selecionou o botão '{nome_esperado}', "
+                f"mas o arquivo enviado parece ser '{nome_detectado}'."
+            )
+
+    # 3. Redireciona para o extrator adequado
+    if tipo_detectado == "pgdas":
         return extrair_dados_pgdas(texto_completo)
-    elif tipo == "folha":
+    elif tipo_detectado == "folha":
         return extrair_dados_folha(texto_completo)
-    elif tipo == "das":
+    elif tipo_detectado in ["das", "fgts"]:
         return extrair_dados_das(texto_completo)
+    elif tipo_detectado == "nfe":
+        # Estrutura inicial para NFe se necessário
+        return {
+            "tipo_documento": "NFe / NFS-e",
+            "faturamentoMes": 0.0
+        }
     else:
-        raise ValueError("Tipo de documento não reconhecido. Envie um PGDAS, Folha de Pagamento ou Guia DAS.")
+        raise ValueError("Tipo de documento não reconhecido. Envie um PGDAS, Folha de Pagamento, Guia DAS/FGTS ou NFe.")

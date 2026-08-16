@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Target, TrendingUp, Wallet, ShieldCheck } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Target, TrendingUp, Wallet, ShieldCheck, Info } from "lucide-react"
 
 interface Resumo {
   fatorR?: number
@@ -26,12 +26,16 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
   const fatorR = Number(resumo.fatorR ?? 0)
   const ajusteReq = Number(resumo.ajusteNecessario ?? resumo.ajuste_necessario ?? resumo.diferencaMassa ?? 0)
 
-  // Verifica se está enquadrado no Anexo III
+  // Identifica se o estado atual está zerado (primeiro acesso)
+  const isZerado = fatTotal === 0 && massaTotal === 0
+
+  // Verifica enquadramento no Anexo III (somente se não estiver zerado)
   const isAnexo3 =
-    resumo.anexo === "Anexo III" ||
-    resumo.anexo === "III" ||
-    resumo.enquadrado === true ||
-    fatorR >= 0.28
+    !isZerado &&
+    (resumo.anexo === "Anexo III" ||
+      resumo.anexo === "III" ||
+      resumo.enquadrado === true ||
+      fatorR >= 0.28)
 
   // Cálculos das metas
   const metaMassaAnual = fatTotal * 0.28
@@ -39,7 +43,7 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
   const ajusteAnual = ajusteReq > 0 ? ajusteReq : Math.max(0, metaMassaAnual - massaTotal)
   const margemSeguranca = Math.max(0, massaTotal - metaMassaAnual)
 
-  // Formatação de moeda BRL blindada contra NaN
+  // Formatação de moeda BRL blindada
   const formatCurrency = (val: any) => {
     const num = typeof val === "number" ? val : parseFloat(val)
     const safeNum = isNaN(num) || !isFinite(num) ? 0 : num
@@ -63,22 +67,26 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
     }).format(p)
   }
 
+  // Definição dinâmica de estilos de acordo com o estado
+  let containerStyle = "border-amber-500/30 bg-amber-950/20 text-amber-100"
+  let iconStyle = "bg-amber-500/20 text-amber-400"
+
+  if (isZerado) {
+    containerStyle = "border-border bg-card/50 text-muted-foreground"
+    iconStyle = "bg-muted text-muted-foreground"
+  } else if (isAnexo3) {
+    containerStyle = "border-blue-500/30 bg-blue-950/20 text-blue-100"
+    iconStyle = "bg-blue-500/20 text-blue-400"
+  }
+
   return (
-    <div
-      className={`rounded-xl border p-5 shadow-sm transition-all ${
-        isAnexo3
-          ? "border-blue-500/30 bg-blue-950/20 text-blue-100"
-          : "border-amber-500/30 bg-amber-950/20 text-amber-100"
-      }`}
-    >
+    <div className={`rounded-xl border p-5 shadow-sm transition-all ${containerStyle}`}>
       {/* Cabeçalho */}
       <div className="flex items-start gap-3">
-        <div
-          className={`rounded-lg p-2.5 ${
-            isAnexo3 ? "bg-blue-500/20 text-blue-400" : "bg-amber-500/20 text-amber-400"
-          }`}
-        >
-          {isAnexo3 ? (
+        <div className={`rounded-lg p-2.5 ${iconStyle}`}>
+          {isZerado ? (
+            <Info className="h-6 w-6" />
+          ) : isAnexo3 ? (
             <CheckCircle2 className="h-6 w-6" />
           ) : (
             <AlertTriangle className="h-6 w-6" />
@@ -87,12 +95,16 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
 
         <div className="space-y-1">
           <h3 className="text-base font-semibold text-foreground">
-            {isAnexo3
+            {isZerado
+              ? "Aguardando simulação de dados"
+              : isAnexo3
               ? "Excelente! Empresa enquadrada no Anexo III"
               : "Atenção: risco de Anexo V"}
           </h3>
           <p className="text-sm opacity-90 leading-relaxed text-muted-foreground">
-            {isAnexo3 ? (
+            {isZerado ? (
+              "Informe os valores de Faturamento e Massa Salarial no formulário acima para calcular o Fator R e visualizar as recomendações."
+            ) : isAnexo3 ? (
               <>
                 Sua massa salarial representa{" "}
                 <strong className="text-blue-400">{formatPercent(fatorR)}</strong> do
@@ -129,7 +141,9 @@ export function RecommendationPanel({ resumo }: RecommendationPanelProps) {
               : formatCurrency(metaMassaMensal)}
           </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {isAnexo3
+            {isZerado
+              ? "Meta mensal de folha (28%)"
+              : isAnexo3
               ? "Valor acumulado acima dos 28%"
               : "Média mensal para enquadramento"}
           </p>

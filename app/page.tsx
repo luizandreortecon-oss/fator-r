@@ -7,7 +7,7 @@ import { KpiCards } from "@/components/kpi-cards"
 import { GaugeChart } from "@/components/gauge-chart"
 import { MonthlyBarChart } from "@/components/monthly-bar-chart"
 import { RecommendationPanel } from "@/components/recommendation-panel"
-import { calcularResumo, monthlyData } from "@/lib/fator-r-data"
+import { monthlyData } from "@/lib/fator-r-data"
 const RESUMO_ZERADO = {
   fatorR: 0,
   anexo: "Anexo V",

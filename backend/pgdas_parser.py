@@ -101,10 +101,30 @@ def extrair_dados_folha(texto_completo: str) -> dict:
 
 
 def extrair_dados_das(texto_completo: str) -> dict:
-    """Extrai faturamento/valor apurado da Guia DAS ou Guia FGTS"""
-    match_faturamento = re.search(r"(?:Receita Bruta|Valor do Débito|Total Apurado|TOTAL)[^\n\r]*?([\d\.,]{4,})", texto_completo, re.IGNORECASE)
+    """Extrai faturamento e a CPP (INSS Patronal) destacados no DAS"""
+    match_faturamento = re.search(
+        r"(?:Receita Bruta|Valor do Débito|Total Apurado)[^\n\r]*?([\d\.,]{4,})", 
+        texto_completo, 
+        re.IGNORECASE
+    )
     fat_mes = parse_brl_float(match_faturamento.group(1)) if match_faturamento else 0.0
 
+    match_cpp = re.search(
+        r"(?:CPP|Contribuição Patronal Previdenciária)[^\n\r]*?([\d\.,]{4,})", 
+        texto_completo, 
+        re.IGNORECASE
+    )
+    cpp_mes = parse_brl_float(match_cpp.group(1)) if match_cpp else 0.0
+
+    match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
+    periodo = match_pa.group(1) if match_pa else "Atual"
+
+    return {
+        "tipo_documento": "Guia DAS",
+        "periodo_apuracao": periodo,
+        "faturamentoMes": round(fat_mes, 2),
+        "cppPatronalMes": round(cpp_mes, 2)
+    }
     match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
     periodo = match_pa.group(1) if match_pa else "Atual"
 

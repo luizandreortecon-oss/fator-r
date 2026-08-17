@@ -32,43 +32,39 @@ def identificar_tipo_documento(texto: str) -> str:
 
 
 def extrair_dados_pgdas(texto_completo: str) -> dict:
-    """Extrai RBT12, FS12 e histórico do PDF do PGDAS-D"""
+    """Extrai RBT12, FS12 e histórico do PDF do PGDAS-D / Extrato"""
     pa_match = re.search(r"Período de Apuração\s*\(PA\):\s*(\d{2}/\d{4})", texto_completo, re.IGNORECASE)
     periodo_apuracao = pa_match.group(1) if pa_match else "Desconhecido"
 
-    rbt12_match = re.search(
-        r"Receita bruta acumulada nos doze meses anteriores ao PA\.\s*\(RBT12\)\s*[\n\r]*\s*([\d\.,]+)",
-        texto_completo,
-        re.IGNORECASE
-    )
-    rbt12 = parse_brl_float(rbt12_match.group(1)) if rbt12_match else 0.0
+    # Busca Receita Bruta do Mês Atual (RPA)
+    match_rpa = re.search(r"Receita Bruta do PA \(RPA\)[^\d]+([\d\.,]+)", texto_completo, re.IGNORECASE)
+    rpa = float(match_rpa.group(1).replace('.', '').replace(',', '.')) if match_rpa else 0.0
 
-    rpa_match = re.search(
-        r"Receita Bruta do PA\s*\(RPA\)[^\n]*\n\s*([\d\.,]+)",
-        texto_completo,
-        re.IGNORECASE
-    )
-    rpa = parse_brl_float(rpa_match.group(1)) if rpa_match else 0.0
+    # 1. Busca RBT12 (Faturamento acumulado de 12m)
+    padroes_rbt12 = [
+        r"RBT12[\s\n:]*R?\$?\s*([\d\.,]+)",
+        r"Receita\s+bruta\s+acumulada\s+nos\s+doze\s+meses\s+anteriores[^\d]+([\d\.,]+)"
+    ]
+    rbt12 = 0.0
+    for p in padroes_rbt12:
+        match = re.search(p, texto_completo, re.IGNORECASE)
+        if match:
+            rbt12 = float(match.group(1).replace('.', '').replace(',', '.'))
+            break
 
+    # 2. Busca FS12 (Folha de Pagamento acumulada de 12m)
+    padroes_fs12 = [
+        r"Total\s+de\s+Folhas\s+de\s+Sal[aá]rios\s+Anteriores[^\d]+([\d\.,]+)",
+        r"Massa\s+Salarial\s+Acumulada[^\d]+([\d\.,]+)"
+    ]
     fs12 = 0.0
-    secao_folha = re.search(r"2\.3\)\s*Folha de Salários Anteriores.*?(?=2\.4|\n\s*3\))", texto_completo, re.DOTALL | re.IGNORECASE)
-    if secao_folha:
-        texto_folha = secao_folha.group(0)
-        entradas_folha = re.findall(r"(\d{2}/\d{4})\.?\s*([\d\.,]+)", texto_folha)
-        if entradas_folha:
-            fs12 = sum(parse_brl_float(v) for _, v in entradas_folha)
+    for p in padroes_fs12:
+        match = re.search(p, texto_completo, re.IGNORECASE)
+        if match:
+            fs12 = float(match.group(1).replace('.', '').replace(',', '.'))
+            break
 
-    detalhes_mensais = []
-    secao_receitas = re.search(r"2\.2\)\s*Receitas Brutas Anteriores.*?(?=2\.3|2\.4)", texto_completo, re.DOTALL | re.IGNORECASE)
-    if secao_receitas:
-        texto_receitas = secao_receitas.group(0)
-        entradas_receitas = re.findall(r"(\d{2}/\d{4})\.?\s*([\d\.,]+)", texto_receitas)
-        for mes, val_str in entradas_receitas:
-            detalhes_mensais.append({
-                "mes": mes,
-                "faturamento": parse_brl_float(val_str)
-            })
-
+    # 3. Cálculo do Fator R e Enquadramento
     fator_r = (fs12 / rbt12) if rbt12 > 0 else 0.0
     enquadrado = fator_r >= 0.28
 
@@ -81,7 +77,7 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
         "fatorR": round(fator_r, 4),
         "enquadrado": enquadrado,
         "anexo": "Anexo III" if enquadrado else "Anexo V",
-        "detalhesMensais": detalhes_mensais
+        "detalhesMensais": []
     }
 
 
@@ -120,26 +116,16 @@ def extrair_dados_das(texto_completo: str) -> dict:
     periodo = match_pa.group(1) if match_pa else "Atual"
 
     return {
-        "tipo_documento": "Guia DAS",
+        "tipo_documento": "Guia DAS / FGTS",
         "periodo_apuracao": periodo,
         "faturamentoMes": round(fat_mes, 2),
         "cppPatronalMes": round(cpp_mes, 2)
-    }
-    match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
-    periodo = match_pa.group(1) if match_pa else "Atual"
-
-    return {
-        "tipo_documento": "Guia DAS / FGTS",
-        "periodo_apuracao": periodo,
-        "faturamentoMes": round(fat_mes, 2)
     }
 
 
 def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> dict:
     """
     Função principal que classifica, valida e extrai os dados do PDF enviado.
-    Se tipo_esperado for informado (diferente de 'auto'), valida se o arquivo
-    corresponde à categoria selecionada pelo usuário no botão.
     """
     texto_completo = ""
 
@@ -152,10 +138,8 @@ def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> 
     if not texto_completo.strip():
         raise ValueError("Não foi possível ler o texto do PDF. O arquivo pode ser uma imagem escaneada.")
 
-    # 1. Identifica o tipo real do documento lido
     tipo_detectado = identificar_tipo_documento(texto_completo)
 
-    # Nomes legíveis para exibir nas mensagens de erro
     nomes_amigaveis = {
         "pgdas": "PGDAS-D",
         "folha": "Folha de Pagamento",
@@ -165,11 +149,9 @@ def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> 
         "desconhecido": "Documento Não Reconhecido"
     }
 
-    # 2. Validação: Se o usuário clicou em um botão específico (ex: 'pgdas')
     tipo_esperado_clean = (tipo_esperado or "auto").lower().strip()
     
     if tipo_esperado_clean != "auto":
-        # Permite flexibilidade entre DAS/FGTS
         is_compativel = (
             tipo_detectado == tipo_esperado_clean or
             (tipo_esperado_clean in ["fgts", "das"] and tipo_detectado in ["fgts", "das"])
@@ -183,7 +165,6 @@ def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> 
                 f"mas o arquivo enviado parece ser '{nome_detectado}'."
             )
 
-    # 3. Redireciona para o extrator adequado
     if tipo_detectado == "pgdas":
         return extrair_dados_pgdas(texto_completo)
     elif tipo_detectado == "folha":
@@ -191,7 +172,6 @@ def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> 
     elif tipo_detectado in ["das", "fgts"]:
         return extrair_dados_das(texto_completo)
     elif tipo_detectado == "nfe":
-        # Estrutura inicial para NFe se necessário
         return {
             "tipo_documento": "NFe / NFS-e",
             "faturamentoMes": 0.0

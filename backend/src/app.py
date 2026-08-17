@@ -130,7 +130,7 @@ def upload_file():
             'sucesso': True,
             'tipo_documento': dados.get('tipo_documento'),
             'faturamento': dados.get('faturamentoTotal') or dados.get('faturamentoMes') or 0,
-            'massa_salarial': dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0,
+            'massa_salarial': (dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0) + dados.get('cppPatronalMes', 0),
             'fator_r': dados.get('fatorR', 0),
             'enquadrado': dados.get('enquadrado', False),
             'anexo': dados.get('anexo', ''),

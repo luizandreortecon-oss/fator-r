@@ -2,6 +2,7 @@ from pgdas_parser import processar_documento_geral
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
+import psycopg2
 from dotenv import load_dotenv
 import jwt
 import bcrypt
@@ -13,7 +14,40 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# ========== BANCO DE DADOS ==========
+# ========== BANCO DE DADOS 1: POSTGRESQL (AIVEN) ==========
+def init_pg_db():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        print("DATABASE_URL não configurada.")
+        return
+
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+    try:
+        conn = psycopg2.connect(database_url)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS historico_documentos (
+                id SERIAL PRIMARY KEY,
+                empresa_id VARCHAR(50) NOT NULL,
+                tipo_documento VARCHAR(30) NOT NULL,
+                periodo_apuracao VARCHAR(7) NOT NULL,
+                faturamento_mes NUMERIC(15, 2) DEFAULT 0.00,
+                massa_salarial_mes NUMERIC(15, 2) DEFAULT 0.00,
+                cpp_patronal_mes NUMERIC(15, 2) DEFAULT 0.00,
+                fator_r NUMERIC(6, 4) DEFAULT 0.0000,
+                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Tabelas no Aiven (PostgreSQL) verificadas/criadas com sucesso!")
+    except Exception as e:
+        print(f"Erro ao conectar ou criar tabela no Aiven: {e}")
+
+# ========== BANCO DE DADOS 2: SQLITE LOCAL (USUÁRIOS) ==========
 DB_PATH = os.path.join(os.path.dirname(__file__), 'database.db')
 
 def get_db():
@@ -21,7 +55,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-def init_db():
+def init_sqlite_db():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
@@ -36,7 +70,9 @@ def init_db():
     conn.commit()
     conn.close()
 
-init_db()
+# Executa a inicialização dos dois bancos na inicialização
+init_pg_db()
+init_sqlite_db()
 
 # ========== FUNÇÕES DE AUTENTICAÇÃO ==========
 def hash_password(password):
@@ -107,7 +143,7 @@ def calcular():
 def health():
     return jsonify({'status': 'OK'})
 
-# ========== ROTA DE UPLOAD (ATUALIZADA) ==========
+# ========== ROTA DE UPLOAD ==========
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -115,15 +151,13 @@ def upload_file():
     
     file = request.files['file']
     modo = request.form.get('modo', 'carga_inicial')
-    tipo_esperado = request.form.get('tipo_esperado', 'auto') # Captura o botão do Next.js
+    tipo_esperado = request.form.get('tipo_esperado', 'auto')
 
     if file.filename == '':
         return jsonify({'sucesso': False, 'erro': 'Nenhum arquivo selecionado'}), 400
 
     try:
         pdf_bytes = file.read()
-        
-        # Envia o arquivo e o tipo selecionado para validação no pgdas_parser
         dados = processar_documento_geral(pdf_bytes, tipo_esperado=tipo_esperado)
 
         return jsonify({
@@ -140,7 +174,6 @@ def upload_file():
         }), 200
 
     except ValueError as e:
-        # Captura mensagens de validação (ex: arquivo diferente do botão selecionado)
         return jsonify({'sucesso': False, 'erro': str(e)}), 400
     except Exception as e:
         return jsonify({'sucesso': False, 'erro': f'Erro no processamento: {str(e)}'}), 500

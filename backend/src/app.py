@@ -31,7 +31,7 @@ def init_pg_db():
         conn = get_pg_conn()
         cur = conn.cursor()
         
-        # Tabela de Usuários (Migrada do SQLite para PostgreSQL)
+        # Tabela de Usuários
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -46,7 +46,6 @@ def init_pg_db():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS historico_documentos (
                 id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 empresa_id VARCHAR(50) DEFAULT '1',
                 tipo_documento VARCHAR(50) NOT NULL,
                 periodo_apuracao VARCHAR(20) NOT NULL,
@@ -57,13 +56,19 @@ def init_pg_db():
                 criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Atualiza a tabela existente adicionando a coluna user_id se ela não existir
+        cur.execute("""
+            ALTER TABLE historico_documentos 
+            ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+        """)
         
         conn.commit()
         cur.close()
         conn.close()
-        print("Tabelas no Aiven (PostgreSQL) verificadas/criadas com sucesso!")
+        print("Tabelas no Aiven (PostgreSQL) verificadas/atualizadas com sucesso!")
     except Exception as e:
-        print(f"Erro ao inicializar tabelas no PostgreSQL: {e}")
+        print(f"Erro ao inicializar/atualizar tabelas no PostgreSQL: {e}")
 
 # Executa a inicialização na partida
 init_pg_db()

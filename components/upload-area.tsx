@@ -62,7 +62,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     }
   }
 
-  // Ação ao clicar em qualquer um dos 4 botões de atalho
   const handleBotaoAtalho = (tipo: string) => {
     setTipoEsperado(tipo)
     fileInputRef.current?.click()
@@ -98,17 +97,27 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     setStatus(null)
 
     try {
+      // 🔥 1. PEGA O TOKEN DO LOCALSTORAGE
+      const token = localStorage.getItem('token')
+      
+      if (!token) {
+        throw new Error('Usuário não autenticado. Faça login novamente.')
+      }
+
+      // 🔥 2. MONTA O FORM DATA
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("modo", modo) // 'carga_inicial' ou 'atualizacao_mensal'
+      formData.append("modo", modo)
       if (tipoEsperado && tipoEsperado !== 'auto') {
         formData.append("tipo_esperado", tipoEsperado)
       }
 
-      const API_URL = "https://fator-r.onrender.com/api/upload"
-
-      const response = await fetch(API_URL, {
+      // 🔥 3. USA A ROTA INTERNA DO NEXT.JS (que vai repassar o token para o Python)
+      const response = await fetch("/api/upload", {
         method: "POST",
+        headers: {
+          'Authorization': `Bearer ${token}` // 🔥 AQUI ESTÁ A CORREÇÃO!
+        },
         body: formData,
       })
 
@@ -162,7 +171,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
   }
 
-  // Estilo visual dos botões de atalho
   const getButtonClass = (tipo: string) => {
     const isSelected = tipoEsperado === tipo
     return `flex items-center gap-2.5 rounded-lg border p-3 text-left text-xs font-medium transition cursor-pointer ${
@@ -181,7 +189,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         </p>
       </div>
 
-      {/* Seletor de Modo */}
       <div className="mb-4 grid grid-cols-2 gap-2 rounded-lg bg-muted p-1 text-xs font-medium">
         <button
           type="button"
@@ -210,7 +217,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         </button>
       </div>
 
-      {/* Input de arquivo invisível */}
       <input
         type="file"
         ref={fileInputRef}
@@ -219,7 +225,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         className="hidden"
       />
 
-      {/* Dropzone */}
       {!file ? (
         <div
           onDragOver={handleDragOver}
@@ -243,7 +248,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
           </p>
         </div>
       ) : (
-        /* Card do arquivo selecionado */
         <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 overflow-hidden">
@@ -298,7 +302,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         </div>
       )}
 
-      {/* Botões de Atalho para Categorias de Documento */}
       <div className="mt-4 grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -337,7 +340,6 @@ export function UploadArea({ onDataExtracted }: UploadAreaProps) {
         </button>
       </div>
 
-      {/* Mensagens de Feedback */}
       {status && (
         <div
           className={`mt-3 flex items-center gap-2 rounded-md p-3 text-xs font-medium ${

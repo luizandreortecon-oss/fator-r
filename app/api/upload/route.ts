@@ -14,7 +14,33 @@ const drive = google.drive({ version: 'v3', auth });
 
 export async function POST(request: NextRequest) {
   try {
+    // 🔥 1. PEGA O TOKEN DO HEADER DA REQUISIÇÃO
+    const authHeader = request.headers.get('Authorization');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json(
+        { erro: 'Usuário não autenticado' },
+        { status: 401 }
+      );
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    // 🔥 2. COPIA O FORMDATA PARA PODER REENVIAR
     const formData = await request.formData();
+    
+    // 🔥 3. CRIA UM NOVO FORMDATA PARA O BACKEND (porque o original já foi consumido)
+    const backendFormData = new FormData();
+    
+    // Copia todos os campos do FormData original
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        backendFormData.append(key, value, value.name);
+      } else {
+        backendFormData.append(key, value as string);
+      }
+    }
+
     const file = formData.get('file') as File;
 
     if (!file) {
@@ -60,7 +86,10 @@ export async function POST(request: NextRequest) {
 
     const pythonResponse = await fetch(PYTHON_BACKEND_URL, {
       method: 'POST',
-      body: formData,
+      headers: {
+        'Authorization': `Bearer ${token}` // 🔥 AQUI ESTÁ A CORREÇÃO!
+      },
+      body: backendFormData, // Usa o novo FormData criado
     });
 
     const parsedData = await pythonResponse.json();

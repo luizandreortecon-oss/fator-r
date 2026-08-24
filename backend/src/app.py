@@ -341,7 +341,13 @@ def upload_file():
         faturamento = dados.get('faturamentoTotal') or dados.get('faturamentoMes') or 0.0
         massa_salarial = (dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0.0) + (dados.get('cppPatronalMes') or 0.0)
         cpp_patronal = dados.get('cppPatronalMes') or 0.0
+        
+        # 🔥 CORREÇÃO DO FATOR R
         fator_r = dados.get('fatorR') or 0.0
+        # Se o valor estiver entre 0 e 1, multiplica por 100 para salvar em porcentagem
+        if fator_r <= 1:
+            fator_r = fator_r * 100
+        
         tipo_doc = dados.get('tipo_documento') or 'desconhecido'
         periodo = dados.get('periodo_apuracao') or 'N/A'
 

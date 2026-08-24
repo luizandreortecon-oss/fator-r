@@ -87,7 +87,14 @@ export default function Page() {
   }
 
   // Função disparada automaticamente quando o Upload do PDF/XML é finalizado
+  // ⚠️ AGORA ELA DEVE RECEBER OS DADOS JÁ SALVOS PELO BACKEND
   const handleDataExtractedFromUpload = (data: any) => {
+    // Se o upload falhou, mostra o erro
+    if (data.erro) {
+      setErro(data.erro)
+      return
+    }
+
     const fat = data.faturamento || 0
     const massa = data.massaSalarial || 0
     const fatorRCalculado = data.fatorR !== undefined 

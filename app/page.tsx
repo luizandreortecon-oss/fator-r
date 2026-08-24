@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useEffect } from "react" // 🔥 ADICIONEI O useEffect
 import { DashboardHeader } from "@/components/dashboard-header"
 import { UploadArea } from "@/components/upload-area"
 import { KpiCards } from "@/components/kpi-cards"
@@ -34,6 +34,48 @@ export default function Page() {
     const parsed = parseFloat(cleanVal)
     return isNaN(parsed) ? 0 : parsed
   }
+
+  // 🔥 FUNÇÃO PARA BUSCAR O HISTÓRICO DO BANCO DE DADOS
+  const fetchHistorico = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://fator-r.onrender.com/api/historico', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+      if (data.sucesso && data.historico.length > 0) {
+        // Atualiza o resumo com o último registro
+        const ultimoRegistro = data.historico[0];
+        
+        setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
+        setMassaSalarial(ultimoRegistro.massa_salarial.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
+        
+        setResumo({
+          fatorR: ultimoRegistro.fator_r <= 1 ? ultimoRegistro.fator_r : ultimoRegistro.fator_r / 100,
+          anexo: ultimoRegistro.fator_r >= 28 ? "Anexo III" : "Anexo V",
+          enquadrado: ultimoRegistro.fator_r >= 28,
+          meta: 0.28,
+          ajusteNecessario: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
+          faturamentoTotal: ultimoRegistro.faturamento,
+          massaSalarialTotal: ultimoRegistro.massa_salarial,
+          diferencaMassa: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao buscar histórico:', error);
+    }
+  };
+
+  // 🔥 EXECUTA A BUSCA DO HISTÓRICO QUANDO A PÁGINA CARREGA
+  useEffect(() => {
+    fetchHistorico();
+  }, []);
 
   // Função disparada ao clicar no botão 'Calcular Fator R'
   const handleCalcular = async (e: React.FormEvent) => {
@@ -87,7 +129,6 @@ export default function Page() {
   }
 
   // Função disparada automaticamente quando o Upload do PDF/XML é finalizado
-  // ⚠️ AGORA ELA DEVE RECEBER OS DADOS JÁ SALVOS PELO BACKEND
   const handleDataExtractedFromUpload = (data: any) => {
     // Se o upload falhou, mostra o erro
     if (data.erro) {

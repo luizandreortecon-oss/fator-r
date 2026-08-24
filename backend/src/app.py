@@ -8,6 +8,11 @@ from dotenv import load_dotenv
 import jwt
 import bcrypt
 from datetime import datetime, timedelta
+import logging
+
+# Configuração de logging para diagnóstico
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -19,11 +24,14 @@ def get_pg_conn():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
         raise ValueError("A variável DATABASE_URL não está configurada.")
-
+    
+    logger.info(f"Conectando ao banco de dados...")
+    
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
-
-    return psycopg2.connect(database_url)
+    
+    # Adiciona timeout para evitar conexões penduradas
+    return psycopg2.connect(database_url, connect_timeout=10)
 
 # ========== INICIALIZAÇÃO DO BANCO NO POSTGRESQL ==========
 def init_pg_db():
@@ -41,11 +49,13 @@ def init_pg_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        logger.info("✅ Tabela users verificada/criada")
 
         # Tabela de Histórico de Documentos
         cur.execute("""
             CREATE TABLE IF NOT EXISTS historico_documentos (
                 id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 empresa_id VARCHAR(50) DEFAULT '1',
                 tipo_documento VARCHAR(50) NOT NULL,
                 periodo_apuracao VARCHAR(20) NOT NULL,
@@ -56,22 +66,30 @@ def init_pg_db():
                 criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        logger.info("✅ Tabela historico_documentos verificada/criada")
 
         # Atualiza a tabela existente adicionando a coluna user_id se ela não existir
         cur.execute("""
             ALTER TABLE historico_documentos 
             ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
         """)
+        logger.info("✅ Coluna user_id verificada/adicionada")
         
         conn.commit()
         cur.close()
         conn.close()
-        print("Tabelas no Aiven (PostgreSQL) verificadas/atualizadas com sucesso!")
+        logger.info("✅ Tabelas no Aiven (PostgreSQL) verificadas/atualizadas com sucesso!")
+        
     except Exception as e:
-        print(f"Erro ao inicializar/atualizar tabelas no PostgreSQL: {e}")
+        logger.error(f"❌ Erro ao inicializar/atualizar tabelas no PostgreSQL: {e}")
+        # Não falha a aplicação se o banco não estiver disponível na inicialização
+        # O banco pode estar temporariamente indisponível
 
 # Executa a inicialização na partida
-init_pg_db()
+try:
+    init_pg_db()
+except Exception as e:
+    logger.warning(f"⚠️ Banco de dados não inicializado na partida: {e}")
 
 # ========== FUNÇÕES DE AUTENTICAÇÃO ==========
 def hash_password(password):
@@ -101,7 +119,8 @@ def get_current_user_id():
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
         return payload.get('user_id')
-    except Exception:
+    except Exception as e:
+        logger.error(f"Erro ao decodificar token: {e}")
         return None
 
 # ========== ROTAS PÚBLICAS ==========
@@ -114,7 +133,48 @@ def teste():
 
 @app.route('/health', methods=['GET'])
 def health():
-    return jsonify({'status': 'OK'})
+    # Testa a conexão com o banco
+    try:
+        conn = get_pg_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify({
+            'status': 'OK', 
+            'database': 'connected',
+            'message': 'Backend e banco de dados funcionando!'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'degraded', 
+            'database': 'disconnected',
+            'error': str(e)
+        }), 500
+
+# ========== ROTA DE TESTE DO BANCO ==========
+@app.route('/api/teste-db', methods=['POST'])
+def teste_db():
+    """Endpoint de teste para verificar se o banco está funcionando"""
+    try:
+        conn = get_pg_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO historico_documentos 
+            (user_id, tipo_documento, periodo_apuracao, faturamento_mes, massa_salarial_mes, cpp_patronal_mes, fator_r)
+            VALUES (NULL, 'teste', '2024-01', 1000.00, 300.00, 0.00, 30.00)
+            RETURNING id
+        """)
+        new_id = cursor.fetchone()[0]
+        conn.commit()
+        cursor.close()
+        conn.close()
+        logger.info(f"✅ Teste de inserção no banco bem-sucedido! ID: {new_id}")
+        return jsonify({'sucesso': True, 'id': new_id, 'mensagem': 'Inserção no banco realizada com sucesso!'})
+    except Exception as e:
+        logger.error(f"❌ Erro no teste de inserção: {e}")
+        return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
 @app.route('/api/calcular', methods=['POST'])
 def calcular():
@@ -194,6 +254,8 @@ def register():
         
         token = generate_token(user_id, email)
         
+        logger.info(f"✅ Usuário registrado com sucesso: {email}")
+        
         return jsonify({
             'success': True,
             'token': token,
@@ -205,6 +267,7 @@ def register():
         }), 201
         
     except Exception as e:
+        logger.error(f"❌ Erro ao registrar usuário: {e}")
         return jsonify({'erro': f'Erro ao registrar: {str(e)}'}), 500
 
 @app.route('/api/auth/login', methods=['POST'])
@@ -230,9 +293,12 @@ def login():
         conn.close()
         
         if not user or not check_password(password, user['password_hash']):
+            logger.warning(f"⚠️ Tentativa de login inválida para: {email}")
             return jsonify({'erro': 'Email ou senha inválidos'}), 401
         
         token = generate_token(user['id'], user['email'])
+        
+        logger.info(f"✅ Login bem-sucedido: {email}")
         
         return jsonify({
             'success': True,
@@ -245,6 +311,7 @@ def login():
         })
         
     except Exception as e:
+        logger.error(f"❌ Erro ao fazer login: {e}")
         return jsonify({'erro': f'Erro ao fazer login: {str(e)}'}), 500
 
 # ========== ROTA DE UPLOAD DE ARQUIVOS ==========
@@ -262,9 +329,14 @@ def upload_file():
 
     try:
         pdf_bytes = file.read()
+        logger.info(f"📄 Processando arquivo: {file.filename}")
+        
         dados = processar_documento_geral(pdf_bytes, tipo_esperado=tipo_esperado)
         
         user_id = get_current_user_id()
+        if not user_id:
+            logger.warning("⚠️ Usuário não autenticado no upload")
+            return jsonify({'sucesso': False, 'erro': 'Usuário não autenticado'}), 401
 
         faturamento = dados.get('faturamentoTotal') or dados.get('faturamentoMes') or 0.0
         massa_salarial = (dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0.0) + (dados.get('cppPatronalMes') or 0.0)
@@ -291,6 +363,13 @@ def upload_file():
             fator_r
         ))
         conn.commit()
+        
+        # Verifica se foi inserido
+        if cursor.rowcount > 0:
+            logger.info(f"✅ Registro inserido com sucesso para user_id={user_id}")
+        else:
+            logger.warning(f"⚠️ Nenhum registro inserido para user_id={user_id}")
+            
         cursor.close()
         conn.close()
 
@@ -308,8 +387,10 @@ def upload_file():
         }), 200
 
     except ValueError as e:
+        logger.error(f"❌ Erro de valor no upload: {e}")
         return jsonify({'sucesso': False, 'erro': str(e)}), 400
     except Exception as e:
+        logger.error(f"❌ Erro no processamento do upload: {e}")
         return jsonify({'sucesso': False, 'erro': f'Erro no processamento: {str(e)}'}), 500
 
 # ========== ROTA DE BUSCA DO HISTÓRICO ==========
@@ -317,6 +398,8 @@ def upload_file():
 def obter_historico():
     try:
         user_id = get_current_user_id()
+        
+        logger.info(f"🔍 Buscando histórico para user_id={user_id}")
         
         conn = get_pg_conn()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -341,6 +424,8 @@ def obter_historico():
         cursor.close()
         conn.close()
 
+        logger.info(f"📊 Registros encontrados: {len(registros)}")
+
         historico = []
         for reg in registros:
             historico.append({
@@ -357,8 +442,45 @@ def obter_historico():
         return jsonify({'sucesso': True, 'historico': historico})
         
     except Exception as e:
+        logger.error(f"❌ Erro ao buscar histórico: {e}")
+        return jsonify({'sucesso': False, 'erro': str(e)}), 500
+
+# ========== ROTA PARA DELETAR REGISTRO DO HISTÓRICO ==========
+@app.route('/api/historico/<int:registro_id>', methods=['DELETE'])
+def deletar_registro(registro_id):
+    try:
+        user_id = get_current_user_id()
+        if not user_id:
+            return jsonify({'sucesso': False, 'erro': 'Usuário não autenticado'}), 401
+        
+        conn = get_pg_conn()
+        cursor = conn.cursor()
+        
+        # Verifica se o registro pertence ao usuário
+        cursor.execute("SELECT id FROM historico_documentos WHERE id = %s AND user_id = %s", 
+                      (registro_id, user_id))
+        
+        if not cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return jsonify({'sucesso': False, 'erro': 'Registro não encontrado'}), 404
+        
+        cursor.execute("DELETE FROM historico_documentos WHERE id = %s AND user_id = %s", 
+                      (registro_id, user_id))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"✅ Registro {registro_id} deletado com sucesso")
+        
+        return jsonify({'sucesso': True, 'mensagem': 'Registro deletado com sucesso'})
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao deletar registro: {e}")
         return jsonify({'sucesso': False, 'erro': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
+    logger.info(f"🚀 Iniciando servidor na porta {port}")
     app.run(host='0.0.0.0', port=port)

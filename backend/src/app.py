@@ -405,32 +405,28 @@ def obter_historico():
     try:
         user_id = get_current_user_id()
         
-        logger.info(f"🔍 Buscando histórico para user_id={user_id}")
+        # 🔥 EXIGE AUTENTICAÇÃO (SE NÃO TIVER TOKEN, RETORNA ERRO)
+        if not user_id:
+            logger.warning("⚠️ Tentativa de acesso sem autenticação ao histórico")
+            return jsonify({'sucesso': False, 'erro': 'Usuário não autenticado'}), 401
         
         conn = get_pg_conn()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        if user_id:
-            cursor.execute("""
-                SELECT id, tipo_documento, periodo_apuracao, faturamento_mes, 
-                       massa_salarial_mes, cpp_patronal_mes, fator_r, criado_em 
-                FROM historico_documentos 
-                WHERE user_id = %s 
-                ORDER BY criado_em DESC
-            """, (user_id,))
-        else:
-            cursor.execute("""
-                SELECT id, tipo_documento, periodo_apuracao, faturamento_mes, 
-                       massa_salarial_mes, cpp_patronal_mes, fator_r, criado_em 
-                FROM historico_documentos 
-                ORDER BY criado_em DESC
-            """)
+        # 🔥 BUSCA APENAS OS DADOS DO USUÁRIO LOGADO
+        cursor.execute("""
+            SELECT id, tipo_documento, periodo_apuracao, faturamento_mes, 
+                   massa_salarial_mes, cpp_patronal_mes, fator_r, criado_em 
+            FROM historico_documentos 
+            WHERE user_id = %s 
+            ORDER BY criado_em DESC
+        """, (user_id,))
             
         registros = cursor.fetchall()
         cursor.close()
         conn.close()
 
-        logger.info(f"📊 Registros encontrados: {len(registros)}")
+        logger.info(f"📊 Registros encontrados para user_id={user_id}: {len(registros)}")
 
         historico = []
         for reg in registros:

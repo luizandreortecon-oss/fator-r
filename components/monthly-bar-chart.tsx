@@ -10,8 +10,17 @@ import {
   Tooltip,
 } from "recharts"
 
+export interface MonthlyDataItem {
+  month?: string
+  mes?: string
+  faturamento: number
+  massaSalarial?: number
+  encargos?: number
+  folha?: number
+}
+
 interface MonthlyBarChartProps {
-  data: any[]
+  data: MonthlyDataItem[]
 }
 
 export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
@@ -23,10 +32,8 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
           margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
           barGap={6}
         >
-          {/* Linhas de grade horizontais sutis */}
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
 
-          {/* Definições de Gradiente para efeito de profundidade */}
           <defs>
             <linearGradient id="gradFaturamento" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#2563EB" stopOpacity={1} />
@@ -39,7 +46,7 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
           </defs>
 
           <XAxis
-            dataKey="month" // Altere para 'mes' se essa for a chave no seu mock
+            dataKey="month"
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#64748B", fontSize: 12, fontWeight: 500 }}
@@ -50,7 +57,7 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#94A3B8", fontSize: 11 }}
-            tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
+            tickFormatter={(val: number) => `R$ ${(val / 1000).toFixed(0)}k`}
           />
 
           <Tooltip
@@ -63,12 +70,11 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
               fontSize: "12px",
               boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)",
             }}
-            formatter={(value: any) => [
-              `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+            formatter={(value: number | string | undefined) => [
+              `R$ ${Number(value || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
             ]}
           />
 
-          {/* Colunas encorpadas com topo arredondado */}
           <Bar
             name="Faturamento Bruto"
             dataKey="faturamento"
@@ -78,7 +84,7 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
           />
           <Bar
             name="Encargos / Folha"
-            dataKey="massaSalarial" // Altere se no seu objeto a chave for 'encargos' ou 'folha'
+            dataKey="massaSalarial"
             fill="url(#gradEncargos)"
             radius={[6, 6, 0, 0]}
             maxBarSize={28}

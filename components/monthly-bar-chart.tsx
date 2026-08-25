@@ -9,15 +9,18 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
 } from "recharts"
 
 export interface MonthlyDataItem {
   month?: string
   mes?: string
-  faturamento: number
+  faturamento?: number
+  receita?: number
   massaSalarial?: number
   encargos?: number
   folha?: number
+  folhaPagamento?: number
   [key: string]: unknown
 }
 
@@ -33,14 +36,22 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
   }, [])
 
   if (!isMounted) {
-    return <div className="h-[320px] w-full rounded-xl bg-slate-100 animate-pulse" />
+    return <div className="h-[340px] w-full rounded-xl bg-slate-100 animate-pulse" />
   }
 
+  // Mapeia os dados para aceitar múltiplos nomes de propriedades automaticamente
+  const chartData = data?.map((item) => ({
+    ...item,
+    monthKey: item.month || item.mes || "",
+    faturamentoKey: Number(item.faturamento ?? item.receita ?? 0),
+    encargosKey: Number(item.massaSalarial ?? item.encargos ?? item.folha ?? item.folhaPagamento ?? 0),
+  }))
+
   return (
-    <div className="h-[320px] w-full pt-2">
+    <div className="h-[350px] w-full pt-2">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={data}
+          data={chartData}
           margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
           barGap={6}
         >
@@ -58,7 +69,7 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
           </defs>
 
           <XAxis
-            dataKey="month"
+            dataKey="monthKey"
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#64748B", fontSize: 12 }}
@@ -87,16 +98,22 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
             ]}
           />
 
+          <Legend
+            verticalAlign="top"
+            align="left"
+            wrapperStyle={{ paddingBottom: "15px", fontSize: "13px" }}
+          />
+
           <Bar
             name="Faturamento Bruto"
-            dataKey="faturamento"
+            dataKey="faturamentoKey"
             fill="url(#gradFaturamento)"
             radius={[6, 6, 0, 0]}
             maxBarSize={28}
           />
           <Bar
             name="Encargos / Folha"
-            dataKey="massaSalarial"
+            dataKey="encargosKey"
             fill="url(#gradEncargos)"
             radius={[6, 6, 0, 0]}
             maxBarSize={28}

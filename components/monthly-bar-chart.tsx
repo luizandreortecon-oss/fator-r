@@ -22,92 +22,27 @@ export interface MonthlyDataItem {
 }
 
 interface MonthlyBarChartProps {
-  data?: MonthlyDataItem[] // Agora opcional para usar dados do backend
+  data: MonthlyDataItem[]
 }
 
-// 🔥 Função para buscar dados do backend
-async function fetchMonthlyData(): Promise<MonthlyDataItem[]> {
-  try {
-    const response = await fetch('https://fator-r.onrender.com/api/dados-grafico')
-    if (!response.ok) throw new Error('Erro ao buscar dados')
-    const result = await response.json()
-    return result
-  } catch (error) {
-    console.error('Erro ao carregar dados do gráfico:', error)
-    return [] // Retorna vazio em caso de erro
-  }
-}
-
-export function MonthlyBarChart({ data: propData }: MonthlyBarChartProps) {
+export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
   const [isMounted, setIsMounted] = useState(false)
-  const [dados, setDados] = useState<MonthlyDataItem[]>([])
-  const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState<string | null>(null)
-
-  // 🔥 Carrega dados do backend se não vier via props
-  useEffect(() => {
-    async function carregarDados() {
-      if (propData && propData.length > 0) {
-        setDados(propData)
-        setCarregando(false)
-        return
-      }
-
-      try {
-        setCarregando(true)
-        const resultado = await fetchMonthlyData()
-        setDados(resultado)
-        setErro(null)
-      } catch (err) {
-        setErro('Não foi possível carregar os dados do gráfico')
-        console.error(err)
-      } finally {
-        setCarregando(false)
-      }
-    }
-    carregarDados()
-  }, [propData])
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  // 🔥 Loading
-  if (!isMounted || carregando) {
+  if (!isMounted) {
     return <div className="h-[320px] w-full rounded-xl bg-slate-100 animate-pulse" />
   }
-
-  // 🔥 Erro
-  if (erro) {
-    return (
-      <div className="h-[320px] w-full flex items-center justify-center text-red-500 text-sm">
-        ⚠️ {erro}
-      </div>
-    )
-  }
-
-  // 🔥 Sem dados
-  if (!dados || dados.length === 0) {
-    return (
-      <div className="h-[320px] w-full flex items-center justify-center text-slate-400 text-sm">
-        Nenhum dado disponível para exibir
-      </div>
-    )
-  }
-
-  // 🔥 Garante que o XAxis tenha a chave correta (month ou mes)
-  const dadosComChave = dados.map((item) => ({
-    ...item,
-    label: item.month || item.mes || '',
-  }))
 
   return (
     <div className="h-[320px] w-full pt-2">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
-          data={dadosComChave}
+          data={data}
           margin={{ top: 10, right: 10, left: -15, bottom: 0 }}
-          barGap={8} // 🔥 Aumentei o espaço entre grupos
+          barGap={6}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
 
@@ -123,13 +58,13 @@ export function MonthlyBarChart({ data: propData }: MonthlyBarChartProps) {
           </defs>
 
           <XAxis
-            dataKey="label"
+            dataKey="month"
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#64748B", fontSize: 12 }}
             dy={8}
           />
-
+          
           <YAxis
             axisLine={false}
             tickLine={false}
@@ -152,20 +87,19 @@ export function MonthlyBarChart({ data: propData }: MonthlyBarChartProps) {
             ]}
           />
 
-          {/* 🔥 COLUNAS MAIS LARGAS E COM IMPACTO */}
           <Bar
             name="Faturamento Bruto"
             dataKey="faturamento"
             fill="url(#gradFaturamento)"
-            radius={[8, 8, 0, 0]}
-            barSize={36} // 🔥 Mudei de maxBarSize para barSize fixo
+            radius={[6, 6, 0, 0]}
+            maxBarSize={28}
           />
           <Bar
             name="Encargos / Folha"
             dataKey="massaSalarial"
             fill="url(#gradEncargos)"
-            radius={[8, 8, 0, 0]}
-            barSize={36} // 🔥 Mudei de maxBarSize para barSize fixo
+            radius={[6, 6, 0, 0]}
+            maxBarSize={28}
           />
         </BarChart>
       </ResponsiveContainer>

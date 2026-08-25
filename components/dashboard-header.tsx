@@ -53,17 +53,17 @@ export function DashboardHeader() {
 
   return (
     <>
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+      <header className="bg-slate-900 text-white border-b border-slate-800 shadow-md">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
               <Calculator className="h-6 w-6" aria-hidden />
             </span>
             <div>
-              <h1 className="text-balance text-xl font-bold tracking-tight text-card-foreground sm:text-2xl">
+              <h1 className="text-balance text-xl font-bold tracking-tight text-white sm:text-2xl">
                 Análise do Fator R & Diagnóstico Tributário
               </h1>
-              <p className="mt-1 text-pretty text-sm text-muted-foreground">
+              <p className="mt-0.5 text-pretty text-sm text-slate-400">
                 Monitore o enquadramento do Simples Nacional (Anexo III vs Anexo V)
               </p>
             </div>
@@ -72,7 +72,7 @@ export function DashboardHeader() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-500 shadow-sm cursor-pointer"
             >
               <LogIn className="h-4 w-4" />
               <span>Entrar / Cadastrar</span>
@@ -82,18 +82,18 @@ export function DashboardHeader() {
       </header>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl text-slate-800">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-card-foreground"
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
             >
               <X className="h-5 w-5" />
             </button>
 
             <div className="mb-6 flex items-center gap-2">
-              <Lock className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-bold text-card-foreground">
+              <Lock className="h-5 w-5 text-blue-600" />
+              <h2 className="text-xl font-bold text-slate-900">
                 {isRegister ? "Criar Conta" : "Acessar Conta"}
               </h2>
             </div>
@@ -101,7 +101,7 @@ export function DashboardHeader() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {isRegister && (
                 <div>
-                  <label className="block text-sm font-medium text-card-foreground mb-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
                     Nome Completo
                   </label>
                   <input
@@ -109,14 +109,14 @@ export function DashboardHeader() {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                     placeholder="Seu nome"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-card-foreground mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   E-mail
                 </label>
                 <input
@@ -124,13 +124,13 @@ export function DashboardHeader() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   placeholder="seu@email.com"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-card-foreground mb-1">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
                   Senha
                 </label>
                 <input
@@ -138,7 +138,7 @@ export function DashboardHeader() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-card-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  className="w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
                   placeholder="••••••••"
                 />
               </div>
@@ -146,19 +146,19 @@ export function DashboardHeader() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "Carregando..." : isRegister ? "Cadastrar" : "Entrar"}
               </button>
             </form>
 
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-4 text-center text-sm text-slate-500">
               {isRegister ? (
                 <p>
                   Já tem uma conta?{" "}
                   <button
                     onClick={() => setIsRegister(false)}
-                    className="font-medium text-primary hover:underline"
+                    className="font-semibold text-blue-600 hover:underline"
                   >
                     Fazer Login
                   </button>
@@ -168,7 +168,7 @@ export function DashboardHeader() {
                   Ainda não tem conta?{" "}
                   <button
                     onClick={() => setIsRegister(true)}
-                    className="font-medium text-primary hover:underline"
+                    className="font-semibold text-blue-600 hover:underline"
                   >
                     Cadastrar-se
                   </button>

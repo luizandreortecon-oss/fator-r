@@ -155,7 +155,7 @@ export default function Page() {
   const gaugeValue = resumo.fatorR <= 1 ? resumo.fatorR * 100 : resumo.fatorR
 
   return (
-    <main className="min-h-screen bg-slate-100 text-slate-800 pb-12">
+    <main className="min-h-screen bg-slate-300 text-slate-900 pb-12">
       <DashboardHeader />
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">

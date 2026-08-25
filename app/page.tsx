@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react" // 🔥 ADICIONEI O useEffect
+import { useState, useEffect } from "react"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { UploadArea } from "@/components/upload-area"
 import { KpiCards } from "@/components/kpi-cards"
@@ -35,7 +35,7 @@ export default function Page() {
     return isNaN(parsed) ? 0 : parsed
   }
 
-  // 🔥 FUNÇÃO PARA BUSCAR O HISTÓRICO DO BANCO DE DADOS
+  // BUSCAR O HISTÓRICO DO BANCO DE DADOS
   const fetchHistorico = async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
@@ -50,7 +50,6 @@ export default function Page() {
 
       const data = await response.json();
       if (data.sucesso && data.historico.length > 0) {
-        // Atualiza o resumo com o último registro
         const ultimoRegistro = data.historico[0];
         
         setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
@@ -72,12 +71,10 @@ export default function Page() {
     }
   };
 
-  // 🔥 EXECUTA A BUSCA DO HISTÓRICO QUANDO A PÁGINA CARREGA
   useEffect(() => {
     fetchHistorico();
   }, []);
 
-  // Função disparada ao clicar no botão 'Calcular Fator R'
   const handleCalcular = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -128,9 +125,7 @@ export default function Page() {
     }
   }
 
-  // Função disparada automaticamente quando o Upload do PDF/XML é finalizado
   const handleDataExtractedFromUpload = (data: any) => {
-    // Se o upload falhou, mostra o erro
     if (data.erro) {
       setErro(data.erro)
       return
@@ -142,11 +137,9 @@ export default function Page() {
       ? data.fatorR 
       : (fat > 0 ? (massa / fat) * 100 : 0)
 
-    // Preenche os campos de input de texto automaticamente com o resultado do arquivo
     setFaturamento(fat > 0 ? fat.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '')
     setMassaSalarial(massa > 0 ? massa.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '')
 
-    // Atualiza todos os cards e velocímetro do dashboard
     setResumo({
       fatorR: fatorRCalculado <= 1 ? fatorRCalculado : fatorRCalculado / 100,
       anexo: data.anexo || (fatorRCalculado >= 28 ? "Anexo III" : "Anexo V"),
@@ -162,23 +155,23 @@ export default function Page() {
   const gaugeValue = resumo.fatorR <= 1 ? resumo.fatorR * 100 : resumo.fatorR
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-slate-100 text-slate-800 pb-12">
       <DashboardHeader />
 
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         
         {/* Formulário Manual */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-          <h2 className="mb-1 text-base font-semibold text-card-foreground">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-base font-bold text-slate-800">
             Simulação Direta de Fator R
           </h2>
-          <p className="mb-4 text-sm text-muted-foreground">
+          <p className="mb-4 text-sm text-slate-500">
             Informe os valores acumulados dos últimos 12 meses para consultar o enquadramento na API.
           </p>
 
           <form onSubmit={handleCalcular} className="grid grid-cols-1 gap-4 sm:grid-cols-3 items-end">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Faturamento (12m)
               </label>
               <input
@@ -186,13 +179,13 @@ export default function Page() {
                 placeholder="Ex: 200000,00"
                 value={faturamento}
                 onChange={(e) => setFaturamento(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-sm text-slate-800 transition focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
                 Massa Salarial (12m)
               </label>
               <input
@@ -200,7 +193,7 @@ export default function Page() {
                 placeholder="Ex: 70000,00"
                 value={massaSalarial}
                 onChange={(e) => setMassaSalarial(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-lg border border-slate-300 bg-slate-50/50 px-3 py-2 text-sm text-slate-800 transition focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20"
                 required
               />
             </div>
@@ -208,14 +201,14 @@ export default function Page() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition disabled:opacity-50 cursor-pointer"
+              className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
             >
               {loading ? 'Calculando na API...' : 'Calcular Fator R'}
             </button>
           </form>
 
           {erro && (
-            <p className="mt-3 text-xs text-destructive font-medium">{erro}</p>
+            <p className="mt-3 text-xs text-red-600 font-medium">{erro}</p>
           )}
         </div>
 
@@ -226,14 +219,14 @@ export default function Page() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <UploadArea onDataExtracted={handleDataExtractedFromUpload} />
 
-          <div className="flex flex-col rounded-xl border border-border bg-card p-5 shadow-sm">
+          <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="mb-2">
-              <h2 className="text-base font-semibold text-card-foreground">Velocímetro do Fator R</h2>
-              <p className="text-sm text-muted-foreground">
+              <h2 className="text-base font-bold text-slate-800">Velocímetro do Fator R</h2>
+              <p className="text-sm text-slate-500">
                 Escala de 0% a 100% — limite de enquadramento em 28%
               </p>
             </div>
-            <div className="flex flex-1 items-center justify-center">
+            <div className="flex flex-1 items-center justify-center pt-4">
               <GaugeChart value={gaugeValue} />
             </div>
           </div>
@@ -243,10 +236,10 @@ export default function Page() {
         <RecommendationPanel resumo={resumo} />
 
         {/* Evolução mensal */}
-        <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4">
-            <h2 className="text-base font-semibold text-card-foreground">Evolução Mensal</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-base font-bold text-slate-800">Evolução Mensal</h2>
+            <p className="text-sm text-slate-500">
               Faturamento Bruto vs Encargos / Folha de Pagamento — últimos 12 meses
             </p>
           </div>

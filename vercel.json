@@ -12,9 +12,6 @@
       "dest": "app/$1"
     }
   ],
-  "installCommand": "npm install --no-audit --no-fund",
-  "buildCommand": "npm run build",
-  "cache": {
-    "disable": true
-  }
+  "installCommand": "npm install",
+  "buildCommand": "npm run build"
 }

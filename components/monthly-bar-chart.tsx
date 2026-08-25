@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,6 +18,7 @@ export interface MonthlyDataItem {
   massaSalarial?: number
   encargos?: number
   folha?: number
+  [key: string]: unknown
 }
 
 interface MonthlyBarChartProps {
@@ -24,6 +26,16 @@ interface MonthlyBarChartProps {
 }
 
 export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) {
+    return <div className="h-[320px] w-full rounded-xl bg-slate-100 animate-pulse" />
+  }
+
   return (
     <div className="h-[320px] w-full pt-2">
       <ResponsiveContainer width="100%" height="100%">
@@ -49,7 +61,7 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
             dataKey="month"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#64748B", fontSize: 12, fontWeight: 500 }}
+            tick={{ fill: "#64748B", fontSize: 12 }}
             dy={8}
           />
           

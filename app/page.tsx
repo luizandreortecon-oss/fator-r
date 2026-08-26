@@ -67,15 +67,18 @@ export default function Page() {
           diferencaMassa: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
         });
 
-        // Mapeia os dados reconhecendo periodo_apuracao do backend
-        const dadosGrafico = data.historico.map((item: any) => ({
-          month: item.periodo_apuracao || item.mes || item.month || item.periodo || `ID ${item.id}`,
-          periodo_apuracao: item.periodo_apuracao,
-          faturamento: Number(item.faturamento || 0),
-          folha: Number(item.massa_salarial || item.folha || 0),
-          massaSalarial: Number(item.massa_salarial || item.folha || 0),
-          massa_salarial: Number(item.massa_salarial || 0),
-        })).reverse();
+        // Calcula a média mensal dividindo os totais acumulados por 12
+        const fatMedio = (ultimoRegistro.faturamento || 0) / 12;
+        const folhaMedia = (ultimoRegistro.massa_salarial || 0) / 12;
+        const meses = ['Ago/25', 'Set/25', 'Out/25', 'Nov/25', 'Dez/25', 'Jan/26', 'Fev/26', 'Mar/26', 'Abr/26', 'Mai/26', 'Jun/26', 'Jul/26'];
+
+        // Gera a estrutura com 12 colunas para preencher o gráfico
+        const dadosGrafico = meses.map((mes) => ({
+          month: mes,
+          faturamento: fatMedio,
+          folha: folhaMedia,
+          massaSalarial: folhaMedia,
+        }));
 
         setChartData(dadosGrafico);
       }

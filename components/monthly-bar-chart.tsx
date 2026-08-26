@@ -15,9 +15,12 @@ import {
 export interface MonthlyDataItem {
   month?: string
   mes?: string
+  periodo_apuracao?: string
+  periodo?: string
   faturamento?: number
   receita?: number
   massaSalarial?: number
+  massa_salarial?: number
   encargos?: number
   folha?: number
   folhaPagamento?: number
@@ -39,12 +42,12 @@ export function MonthlyBarChart({ data }: MonthlyBarChartProps) {
     return <div className="h-[340px] w-full rounded-xl bg-slate-100 animate-pulse" />
   }
 
-  // Mapeia os dados para aceitar múltiplos nomes de propriedades automaticamente
+  // Mapeia os dados aceitando chaves em camelCase e snake_case vindas do backend
   const chartData = data?.map((item) => ({
     ...item,
-    monthKey: item.month || item.mes || "",
+    monthKey: item.month || item.mes || item.periodo_apuracao || item.periodo || "",
     faturamentoKey: Number(item.faturamento ?? item.receita ?? 0),
-    encargosKey: Number(item.massaSalarial ?? item.encargos ?? item.folha ?? item.folhaPagamento ?? 0),
+    encargosKey: Number(item.massaSalarial ?? item.massa_salarial ?? item.encargos ?? item.folha ?? item.folhaPagamento ?? 0),
   }))
 
   return (

@@ -51,11 +51,10 @@ export default function Page() {
 
       const data = await response.json();
       if (data.sucesso && data.historico.length > 0) {
-        // 1. Atualiza os campos com o registro mais recente
         const ultimoRegistro = data.historico[0];
         
-        setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
-        setMassaSalarial(ultimoRegistro.massa_salarial.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
+        setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+        setMassaSalarial(ultimoRegistro.massa_salarial.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
         
         setResumo({
           fatorR: ultimoRegistro.fator_r <= 1 ? ultimoRegistro.fator_r : ultimoRegistro.fator_r / 100,
@@ -66,16 +65,17 @@ export default function Page() {
           faturamentoTotal: ultimoRegistro.faturamento,
           massaSalarialTotal: ultimoRegistro.massa_salarial,
           diferencaMassa: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
-        })
+        });
 
-        // 2. Mapeia e atualiza o histórico dos 12 meses para o gráfico
+        // Mapeia os dados reais mensais vindos da API
         const dadosGrafico = data.historico.map((item: any) => ({
           month: item.mes || item.month || item.periodo,
           faturamento: Number(item.faturamento || 0),
+          folha: Number(item.massa_salarial || item.folha || 0),
           massaSalarial: Number(item.massa_salarial || item.folha || 0),
-        })).reverse() // Exibe do mês mais antigo para o mais recente
+        })).reverse();
 
-        setChartData(dadosGrafico)
+        setChartData(dadosGrafico);
       }
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);

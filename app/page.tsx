@@ -50,7 +50,7 @@ export default function Page() {
       });
 
       const data = await response.json();
-      if (data.sucesso && data.historico.length > 0) {
+      if (data.sucesso && data.historico?.length > 0) {
         const ultimoRegistro = data.historico[0];
         
         setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
@@ -67,12 +67,14 @@ export default function Page() {
           diferencaMassa: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
         });
 
-        // Mapeia os dados reais mensais vindos da API
+        // Mapeia os dados reconhecendo periodo_apuracao do backend
         const dadosGrafico = data.historico.map((item: any) => ({
-          month: item.mes || item.month || item.periodo,
+          month: item.periodo_apuracao || item.mes || item.month || item.periodo || `ID ${item.id}`,
+          periodo_apuracao: item.periodo_apuracao,
           faturamento: Number(item.faturamento || 0),
           folha: Number(item.massa_salarial || item.folha || 0),
           massaSalarial: Number(item.massa_salarial || item.folha || 0),
+          massa_salarial: Number(item.massa_salarial || 0),
         })).reverse();
 
         setChartData(dadosGrafico);

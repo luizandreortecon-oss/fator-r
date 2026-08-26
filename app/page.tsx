@@ -26,6 +26,7 @@ export default function Page() {
   const [massaSalarial, setMassaSalarial] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [chartData, setChartData] = useState(monthlyData)
 
   // Tratamento de valores para formato numérico
   const parseInputNumber = (val: string): number => {
@@ -50,6 +51,7 @@ export default function Page() {
 
       const data = await response.json();
       if (data.sucesso && data.historico.length > 0) {
+        // 1. Atualiza os campos com o registro mais recente
         const ultimoRegistro = data.historico[0];
         
         setFaturamento(ultimoRegistro.faturamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 }))
@@ -65,6 +67,15 @@ export default function Page() {
           massaSalarialTotal: ultimoRegistro.massa_salarial,
           diferencaMassa: Math.max(0, (ultimoRegistro.faturamento * 0.28) - ultimoRegistro.massa_salarial),
         })
+
+        // 2. Mapeia e atualiza o histórico dos 12 meses para o gráfico
+        const dadosGrafico = data.historico.map((item: any) => ({
+          month: item.mes || item.month || item.periodo,
+          faturamento: Number(item.faturamento || 0),
+          massaSalarial: Number(item.massa_salarial || item.folha || 0),
+        })).reverse() // Exibe do mês mais antigo para o mais recente
+
+        setChartData(dadosGrafico)
       }
     } catch (error) {
       console.error('Erro ao buscar histórico:', error);
@@ -243,7 +254,7 @@ export default function Page() {
               Faturamento Bruto vs Encargos / Folha de Pagamento — últimos 12 meses
             </p>
           </div>
-          <MonthlyBarChart data={monthlyData} />
+          <MonthlyBarChart data={chartData} />
         </div>
       </div>
     </main>

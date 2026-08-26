@@ -9,6 +9,7 @@ import jwt
 import bcrypt
 from datetime import datetime, timedelta
 import logging
+import json
 
 # Configuração de logging para diagnóstico
 logging.basicConfig(level=logging.INFO)
@@ -63,17 +64,19 @@ def init_pg_db():
                 massa_salarial_mes NUMERIC(15, 2) DEFAULT 0.00,
                 cpp_patronal_mes NUMERIC(15, 2) DEFAULT 0.00,
                 fator_r NUMERIC(6, 4) DEFAULT 0.0000,
+                detalhes_mensais JSONB,
                 criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
         logger.info("✅ Tabela historico_documentos verificada/criada")
 
-        # Atualiza a tabela existente adicionando a coluna user_id se ela não existir
+        # Atualiza a tabela existente adicionando colunas se não existirem
         cur.execute("""
             ALTER TABLE historico_documentos 
-            ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE;
+            ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            ADD COLUMN IF NOT EXISTS detalhes_mensais JSONB;
         """)
-        logger.info("✅ Coluna user_id verificada/adicionada")
+        logger.info("✅ Colunas user_id e detalhes_mensais verificadas/adicionadas")
         
         conn.commit()
         cur.close()
@@ -82,8 +85,6 @@ def init_pg_db():
         
     except Exception as e:
         logger.error(f"❌ Erro ao inicializar/atualizar tabelas no PostgreSQL: {e}")
-        # Não falha a aplicação se o banco não estiver disponível na inicialização
-        # O banco pode estar temporariamente indisponível
 
 # Executa a inicialização na partida
 try:
@@ -133,7 +134,6 @@ def teste():
 
 @app.route('/health', methods=['GET'])
 def health():
-    # Testa a conexão com o banco
     try:
         conn = get_pg_conn()
         cur = conn.cursor()
@@ -156,7 +156,6 @@ def health():
 # ========== ROTA DE TESTE DO BANCO ==========
 @app.route('/api/teste-db', methods=['POST'])
 def teste_db():
-    """Endpoint de teste para verificar se o banco está funcionando"""
     try:
         conn = get_pg_conn()
         cursor = conn.cursor()
@@ -342,22 +341,21 @@ def upload_file():
         massa_salarial = (dados.get('massaSalarialTotal') or dados.get('massaSalarialMes') or 0.0) + (dados.get('cppPatronalMes') or 0.0)
         cpp_patronal = dados.get('cppPatronalMes') or 0.0
         
-        # 🔥 CORREÇÃO DO FATOR R
         fator_r = dados.get('fatorR') or 0.0
-        # Se o valor estiver entre 0 e 1, multiplica por 100 para salvar em porcentagem
         if fator_r <= 1:
             fator_r = fator_r * 100
         
         tipo_doc = dados.get('tipo_documento') or 'desconhecido'
         periodo = dados.get('periodo_apuracao') or 'N/A'
+        detalhes_mensais = dados.get('detalhesMensais') or dados.get('detalhes_mensais') or []
 
-        # Salva o resultado diretamente no PostgreSQL (Aiven)
+        # Salva o resultado no PostgreSQL (Aiven) guardando também a lista detalhada dos 12 meses
         conn = get_pg_conn()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO historico_documentos 
-            (user_id, empresa_id, tipo_documento, periodo_apuracao, faturamento_mes, massa_salarial_mes, cpp_patronal_mes, fator_r)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            (user_id, empresa_id, tipo_documento, periodo_apuracao, faturamento_mes, massa_salarial_mes, cpp_patronal_mes, fator_r, detalhes_mensais)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             user_id,
             '1',
@@ -366,11 +364,11 @@ def upload_file():
             faturamento,
             massa_salarial,
             cpp_patronal,
-            fator_r
+            fator_r,
+            json.dumps(detalhes_mensais)
         ))
         conn.commit()
         
-        # Verifica se foi inserido
         if cursor.rowcount > 0:
             logger.info(f"✅ Registro inserido com sucesso para user_id={user_id}")
         else:
@@ -388,7 +386,7 @@ def upload_file():
             'enquadrado': dados.get('enquadrado', False),
             'anexo': dados.get('anexo', ''),
             'periodo_apuracao': periodo,
-            'detalhes_mensais': dados.get('detalhesMensais', []),
+            'detalhes_mensais': detalhes_mensais,
             'modo': modo
         }), 200
 
@@ -405,7 +403,6 @@ def obter_historico():
     try:
         user_id = get_current_user_id()
         
-        # 🔥 EXIGE AUTENTICAÇÃO (SE NÃO TIVER TOKEN, RETORNA ERRO)
         if not user_id:
             logger.warning("⚠️ Tentativa de acesso sem autenticação ao histórico")
             return jsonify({'sucesso': False, 'erro': 'Usuário não autenticado'}), 401
@@ -413,10 +410,9 @@ def obter_historico():
         conn = get_pg_conn()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         
-        # 🔥 BUSCA APENAS OS DADOS DO USUÁRIO LOGADO
         cursor.execute("""
             SELECT id, tipo_documento, periodo_apuracao, faturamento_mes, 
-                   massa_salarial_mes, cpp_patronal_mes, fator_r, criado_em 
+                   massa_salarial_mes, cpp_patronal_mes, fator_r, criado_em, detalhes_mensais 
             FROM historico_documentos 
             WHERE user_id = %s 
             ORDER BY criado_em DESC
@@ -430,6 +426,15 @@ def obter_historico():
 
         historico = []
         for reg in registros:
+            detalhes = reg.get('detalhes_mensais')
+            if isinstance(detalhes, str):
+                try:
+                    detalhes = json.loads(detalhes)
+                except Exception:
+                    detalhes = []
+            elif not detalhes:
+                detalhes = []
+
             historico.append({
                 'id': reg['id'],
                 'tipo_documento': reg['tipo_documento'],
@@ -438,6 +443,7 @@ def obter_historico():
                 'massa_salarial': float(reg['massa_salarial_mes']),
                 'cpp_patronal': float(reg['cpp_patronal_mes']),
                 'fator_r': float(reg['fator_r']),
+                'meses': detalhes,
                 'criado_em': reg['criado_em'].strftime('%Y-%m-%d %H:%M:%S') if reg['criado_em'] else ''
             })
 
@@ -458,7 +464,6 @@ def deletar_registro(registro_id):
         conn = get_pg_conn()
         cursor = conn.cursor()
         
-        # Verifica se o registro pertence ao usuário
         cursor.execute("SELECT id FROM historico_documentos WHERE id = %s AND user_id = %s", 
                       (registro_id, user_id))
         

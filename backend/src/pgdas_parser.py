@@ -31,6 +31,52 @@ def identificar_tipo_documento(texto: str) -> str:
         return "desconhecido"
 
 
+def extrair_detalhes_mensais(texto_completo: str) -> list:
+    """
+    Extrai o histórico mês a mês (últimos 12 meses) de Faturamento e Massa Salarial
+    da tabela do PGDAS-D.
+    """
+    dados_por_mes = {}
+
+    # 1. Busca linhas no padrão: MM/YYYY  Faturamento  MassaSalarial
+    # Exemplo: 08/2025  55.000,00  16.000,00
+    padrao_duplo = r"(\d{2}/\d{4})\s+R?\$?\s*([\d\.,]+)\s+R?\$?\s*([\d\.,]+)"
+    matches_duplo = re.findall(padrao_duplo, texto_completo)
+
+    if matches_duplo:
+        for mes, fat_str, massa_str in matches_duplo:
+            fat = parse_brl_float(fat_str)
+            massa = parse_brl_float(massa_str)
+            if fat > 0 or massa > 0:
+                if mes not in dados_por_mes:
+                    dados_por_mes[mes] = {"faturamento": fat, "massa_salarial": massa}
+
+    # 2. Se a tabela no PDF tiver faturamento e massa salarial em seções separadas
+    if len(dados_por_mes) < 12:
+        padrao_simples = r"(\d{2}/\d{4})\s+R?\$?\s*([\d\.,]+)"
+        matches_simples = re.findall(padrao_simples, texto_completo)
+        
+        for mes, val_str in matches_simples:
+            val = parse_brl_float(val_str)
+            if val > 0:
+                if mes not in dados_por_mes:
+                    dados_por_mes[mes] = {"faturamento": val, "massa_salarial": 0.0}
+                elif dados_por_mes[mes]["massa_salarial"] == 0.0 and val != dados_por_mes[mes]["faturamento"]:
+                    dados_por_mes[mes]["massa_salarial"] = val
+
+    # Formata a lista para o padrão exigido pelo frontend/backend
+    resultado = []
+    for mes, valores in dados_por_mes.items():
+        resultado.append({
+            "mes": mes,
+            "faturamento": round(valores["faturamento"], 2),
+            "massa_salarial": round(valores["massa_salarial"], 2)
+        })
+
+    # Retorna até os 12 meses encontrados
+    return resultado[:12]
+
+
 def extrair_dados_pgdas(texto_completo: str) -> dict:
     """Extrai RBT12, FS12 e histórico do PDF do PGDAS-D / Extrato"""
     pa_match = re.search(r"Período de Apuração\s*\(PA\):\s*(\d{2}/\d{4})", texto_completo, re.IGNORECASE)
@@ -68,6 +114,9 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
     fator_r = (fs12 / rbt12) if rbt12 > 0 else 0.0
     enquadrado = fator_r >= 0.28
 
+    # Extrai a lista de 12 meses reais do texto do PDF
+    detalhes_mensais = extrair_detalhes_mensais(texto_completo)
+
     return {
         "tipo_documento": "PGDAS-D",
         "periodo_apuracao": periodo_apuracao,
@@ -77,7 +126,7 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
         "fatorR": round(fator_r, 4),
         "enquadrado": enquadrado,
         "anexo": "Anexo III" if enquadrado else "Anexo V",
-        "detalhesMensais": []
+        "detalhesMensais": detalhes_mensais
     }
 
 

@@ -48,7 +48,7 @@ def extrair_detalhes_mensais_pdf(pdf) -> list:
                 row_str = " ".join([str(cell) for cell in row if cell])
                 pa_match = re.search(r"(\d{2}/\d{4})", row_str)
                 if pa_match:
-                    pa = pa_match.group(1)
+                    pa = pa_match.group(1)[:7]
                     valores = re.findall(r"[\d\.]{1,12},\d{2}", row_str)
                     if len(valores) >= 2:
                         dados_meses[pa] = {
@@ -68,7 +68,7 @@ def extrair_detalhes_mensais_pdf(pdf) -> list:
             for line in texto.split("\n"):
                 pa_match = re.search(r"(\d{2}/\d{4})", line)
                 if pa_match:
-                    pa = pa_match.group(1)
+                    pa = pa_match.group(1)[:7]
                     valores = re.findall(r"[\d\.]{1,12},\d{2}", line)
                     if len(valores) >= 2:
                         dados_meses[pa] = {
@@ -81,11 +81,11 @@ def extrair_detalhes_mensais_pdf(pdf) -> list:
                             "massa_salarial": 0.0
                         }
 
-    # Formatação do resultado final
+    # Formatação do resultado final garantindo 7 caracteres max por mês
     resultado = []
     for mes, vals in dados_meses.items():
         resultado.append({
-            "mes": mes,
+            "mes": str(mes)[:7],
             "faturamento": round(vals["faturamento"], 2),
             "massa_salarial": round(vals["massa_salarial"], 2)
         })
@@ -96,7 +96,7 @@ def extrair_detalhes_mensais_pdf(pdf) -> list:
 def extrair_dados_pgdas(pdf, texto_completo: str) -> dict:
     """Extrai RBT12, FS12 e histórico do PDF do PGDAS-D / Extrato"""
     pa_match = re.search(r"Período de Apuração\s*\(PA\):\s*(\d{2}/\d{4})", texto_completo, re.IGNORECASE)
-    periodo_apuracao = pa_match.group(1) if pa_match else "Desconhecido"
+    periodo_apuracao = pa_match.group(1)[:7] if pa_match else "00/0000"
 
     match_rpa = re.search(r"Receita Bruta do PA \(RPA\)[^\d]+([\d\.,]+)", texto_completo, re.IGNORECASE)
     rpa = parse_brl_float(match_rpa.group(1)) if match_rpa else 0.0
@@ -126,7 +126,6 @@ def extrair_dados_pgdas(pdf, texto_completo: str) -> dict:
     fator_r = (fs12 / rbt12) if rbt12 > 0 else 0.0
     enquadrado = fator_r >= 0.28
 
-    # Extração robusta da tabela de meses usando a instância do PDF
     detalhes_mensais = extrair_detalhes_mensais_pdf(pdf)
 
     return {
@@ -148,7 +147,7 @@ def extrair_dados_folha(texto_completo: str) -> dict:
     massa_mes = parse_brl_float(match_folha.group(1)) if match_folha else 0.0
 
     match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
-    periodo = match_pa.group(1) if match_pa else "Atual"
+    periodo = match_pa.group(1)[:7] if match_pa else "00/0000"
 
     return {
         "tipo_documento": "Folha de Pagamento",
@@ -174,7 +173,7 @@ def extrair_dados_das(texto_completo: str) -> dict:
     cpp_mes = parse_brl_float(match_cpp.group(1)) if match_cpp else 0.0
 
     match_pa = re.search(r"(\d{2}/\d{4})", texto_completo)
-    periodo = match_pa.group(1) if match_pa else "Atual"
+    periodo = match_pa.group(1)[:7] if match_pa else "00/0000"
 
     return {
         "tipo_documento": "Guia DAS / FGTS",

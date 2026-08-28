@@ -4,10 +4,10 @@ import io
 
 def parse_brl_float(valor_str: str) -> float:
     """Converte valores BRL ("1.840.769,27") para float (1840769.27)"""
-    if not valor_str or valor_str.strip().lower() in ["nenhuma", "não se aplica", "-"]:
+    if not valor_str or str(valor_str).strip().lower() in ["nenhuma", "não se aplica", "-", "none"]:
         return 0.0
     try:
-        limpo = valor_str.strip().replace(".", "").replace(",", ".")
+        limpo = str(valor_str).strip().replace(".", "").replace(",", ".")
         return float(limpo)
     except ValueError:
         return 0.0
@@ -31,62 +31,76 @@ def identificar_tipo_documento(texto: str) -> str:
         return "desconhecido"
 
 
-def extrair_detalhes_mensais(texto_completo: str) -> list:
+def extrair_detalhes_mensais_pdf(pdf) -> list:
     """
-    Extrai o histórico mês a mês (últimos 12 meses) de Faturamento e Massa Salarial
-    da tabela do PGDAS-D.
+    Extrai a tabela dos 12 meses varrendo tanto as tabelas estruturadas 
+    quanto as linhas de texto do documento PGDAS-D.
     """
-    dados_por_mes = {}
+    dados_meses = {}
 
-    # 1. Busca linhas no padrão: MM/YYYY  Faturamento  MassaSalarial
-    # Exemplo: 08/2025  55.000,00  16.000,00
-    padrao_duplo = r"(\d{2}/\d{4})\s+R?\$?\s*([\d\.,]+)\s+R?\$?\s*([\d\.,]+)"
-    matches_duplo = re.findall(padrao_duplo, texto_completo)
+    # 1. Varredura via tabelas nativas do PDF
+    for page in pdf.pages:
+        tables = page.extract_tables()
+        for table in tables:
+            for row in table:
+                if not row:
+                    continue
+                row_str = " ".join([str(cell) for cell in row if cell])
+                pa_match = re.search(r"(\d{2}/\d{4})", row_str)
+                if pa_match:
+                    pa = pa_match.group(1)
+                    valores = re.findall(r"[\d\.]{1,12},\d{2}", row_str)
+                    if len(valores) >= 2:
+                        dados_meses[pa] = {
+                            "faturamento": parse_brl_float(valores[0]),
+                            "massa_salarial": parse_brl_float(valores[1])
+                        }
+                    elif len(valores) == 1:
+                        dados_meses[pa] = {
+                            "faturamento": parse_brl_float(valores[0]),
+                            "massa_salarial": 0.0
+                        }
 
-    if matches_duplo:
-        for mes, fat_str, massa_str in matches_duplo:
-            fat = parse_brl_float(fat_str)
-            massa = parse_brl_float(massa_str)
-            if fat > 0 or massa > 0:
-                if mes not in dados_por_mes:
-                    dados_por_mes[mes] = {"faturamento": fat, "massa_salarial": massa}
+    # 2. Varredura via texto corrido (linha a linha) caso as tabelas não tenham bordas
+    if not dados_meses:
+        for page in pdf.pages:
+            texto = page.extract_text() or ""
+            for line in texto.split("\n"):
+                pa_match = re.search(r"(\d{2}/\d{4})", line)
+                if pa_match:
+                    pa = pa_match.group(1)
+                    valores = re.findall(r"[\d\.]{1,12},\d{2}", line)
+                    if len(valores) >= 2:
+                        dados_meses[pa] = {
+                            "faturamento": parse_brl_float(valores[0]),
+                            "massa_salarial": parse_brl_float(valores[1])
+                        }
+                    elif len(valores) == 1:
+                        dados_meses[pa] = {
+                            "faturamento": parse_brl_float(valores[0]),
+                            "massa_salarial": 0.0
+                        }
 
-    # 2. Se a tabela no PDF tiver faturamento e massa salarial em seções separadas
-    if len(dados_por_mes) < 12:
-        padrao_simples = r"(\d{2}/\d{4})\s+R?\$?\s*([\d\.,]+)"
-        matches_simples = re.findall(padrao_simples, texto_completo)
-        
-        for mes, val_str in matches_simples:
-            val = parse_brl_float(val_str)
-            if val > 0:
-                if mes not in dados_por_mes:
-                    dados_por_mes[mes] = {"faturamento": val, "massa_salarial": 0.0}
-                elif dados_por_mes[mes]["massa_salarial"] == 0.0 and val != dados_por_mes[mes]["faturamento"]:
-                    dados_por_mes[mes]["massa_salarial"] = val
-
-    # Formata a lista para o padrão exigido pelo frontend/backend
+    # Formatação do resultado final
     resultado = []
-    for mes, valores in dados_por_mes.items():
+    for mes, vals in dados_meses.items():
         resultado.append({
             "mes": mes,
-            "faturamento": round(valores["faturamento"], 2),
-            "massa_salarial": round(valores["massa_salarial"], 2)
+            "faturamento": round(vals["faturamento"], 2),
+            "massa_salarial": round(vals["massa_salarial"], 2)
         })
 
-    # Retorna até os 12 meses encontrados
     return resultado[:12]
 
 
-def extrair_dados_pgdas(texto_completo: str) -> dict:
+def extrair_dados_pgdas(pdf, texto_completo: str) -> dict:
     """Extrai RBT12, FS12 e histórico do PDF do PGDAS-D / Extrato"""
     pa_match = re.search(r"Período de Apuração\s*\(PA\):\s*(\d{2}/\d{4})", texto_completo, re.IGNORECASE)
     periodo_apuracao = pa_match.group(1) if pa_match else "Desconhecido"
 
-    # Busca Receita Bruta do Mês Atual (RPA)
     match_rpa = re.search(r"Receita Bruta do PA \(RPA\)[^\d]+([\d\.,]+)", texto_completo, re.IGNORECASE)
-    rpa = float(match_rpa.group(1).replace('.', '').replace(',', '.')) if match_rpa else 0.0
+    rpa = parse_brl_float(match_rpa.group(1)) if match_rpa else 0.0
 
-    # 1. Busca RBT12 (Faturamento acumulado de 12m)
     padroes_rbt12 = [
         r"RBT12[\s\n:]*R?\$?\s*([\d\.,]+)",
         r"Receita\s+bruta\s+acumulada\s+nos\s+doze\s+meses\s+anteriores[^\d]+([\d\.,]+)"
@@ -95,10 +109,9 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
     for p in padroes_rbt12:
         match = re.search(p, texto_completo, re.IGNORECASE)
         if match:
-            rbt12 = float(match.group(1).replace('.', '').replace(',', '.'))
+            rbt12 = parse_brl_float(match.group(1))
             break
 
-    # 2. Busca FS12 (Folha de Pagamento acumulada de 12m)
     padroes_fs12 = [
         r"Total\s+de\s+Folhas\s+de\s+Sal[aá]rios\s+Anteriores[^\d]+([\d\.,]+)",
         r"Massa\s+Salarial\s+Acumulada[^\d]+([\d\.,]+)"
@@ -107,15 +120,14 @@ def extrair_dados_pgdas(texto_completo: str) -> dict:
     for p in padroes_fs12:
         match = re.search(p, texto_completo, re.IGNORECASE)
         if match:
-            fs12 = float(match.group(1).replace('.', '').replace(',', '.'))
+            fs12 = parse_brl_float(match.group(1))
             break
 
-    # 3. Cálculo do Fator R e Enquadramento
     fator_r = (fs12 / rbt12) if rbt12 > 0 else 0.0
     enquadrado = fator_r >= 0.28
 
-    # Extrai a lista de 12 meses reais do texto do PDF
-    detalhes_mensais = extrair_detalhes_mensais(texto_completo)
+    # Extração robusta da tabela de meses usando a instância do PDF
+    detalhes_mensais = extrair_detalhes_mensais_pdf(pdf)
 
     return {
         "tipo_documento": "PGDAS-D",
@@ -173,9 +185,7 @@ def extrair_dados_das(texto_completo: str) -> dict:
 
 
 def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> dict:
-    """
-    Função principal que classifica, valida e extrai os dados do PDF enviado.
-    """
+    """Função principal que classifica, valida e extrai os dados do PDF enviado."""
     texto_completo = ""
 
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
@@ -184,46 +194,46 @@ def processar_documento_geral(pdf_bytes: bytes, tipo_esperado: str = "auto") -> 
             if texto_pagina:
                 texto_completo += texto_pagina + "\n"
 
-    if not texto_completo.strip():
-        raise ValueError("Não foi possível ler o texto do PDF. O arquivo pode ser uma imagem escaneada.")
+        if not texto_completo.strip():
+            raise ValueError("Não foi possível ler o texto do PDF. O arquivo pode ser uma imagem escaneada.")
 
-    tipo_detectado = identificar_tipo_documento(texto_completo)
+        tipo_detectado = identificar_tipo_documento(texto_completo)
 
-    nomes_amigaveis = {
-        "pgdas": "PGDAS-D",
-        "folha": "Folha de Pagamento",
-        "fgts": "Guia FGTS / eSocial",
-        "nfe": "Nota Fiscal (NFe/NFS-e)",
-        "das": "Guia DAS",
-        "desconhecido": "Documento Não Reconhecido"
-    }
+        nomes_amigaveis = {
+            "pgdas": "PGDAS-D",
+            "folha": "Folha de Pagamento",
+            "fgts": "Guia FGTS / eSocial",
+            "nfe": "Nota Fiscal (NFe/NFS-e)",
+            "das": "Guia DAS",
+            "desconhecido": "Documento Não Reconhecido"
+        }
 
-    tipo_esperado_clean = (tipo_esperado or "auto").lower().strip()
-    
-    if tipo_esperado_clean != "auto":
-        is_compativel = (
-            tipo_detectado == tipo_esperado_clean or
-            (tipo_esperado_clean in ["fgts", "das"] and tipo_detectado in ["fgts", "das"])
-        )
-
-        if not is_compativel:
-            nome_esperado = nomes_amigaveis.get(tipo_esperado_clean, tipo_esperado_clean.upper())
-            nome_detectado = nomes_amigaveis.get(tipo_detectado, "Desconhecido")
-            raise ValueError(
-                f"Documento incorreto! Você selecionou o botão '{nome_esperado}', "
-                f"mas o arquivo enviado parece ser '{nome_detectado}'."
+        tipo_esperado_clean = (tipo_esperado or "auto").lower().strip()
+        
+        if tipo_esperado_clean != "auto":
+            is_compativel = (
+                tipo_detectado == tipo_esperado_clean or
+                (tipo_esperado_clean in ["fgts", "das"] and tipo_detectado in ["fgts", "das"])
             )
 
-    if tipo_detectado == "pgdas":
-        return extrair_dados_pgdas(texto_completo)
-    elif tipo_detectado == "folha":
-        return extrair_dados_folha(texto_completo)
-    elif tipo_detectado in ["das", "fgts"]:
-        return extrair_dados_das(texto_completo)
-    elif tipo_detectado == "nfe":
-        return {
-            "tipo_documento": "NFe / NFS-e",
-            "faturamentoMes": 0.0
-        }
-    else:
-        raise ValueError("Tipo de documento não reconhecido. Envie um PGDAS, Folha de Pagamento, Guia DAS/FGTS ou NFe.")
+            if not is_compativel:
+                nome_esperado = nomes_amigaveis.get(tipo_esperado_clean, tipo_esperado_clean.upper())
+                nome_detectado = nomes_amigaveis.get(tipo_detectado, "Desconhecido")
+                raise ValueError(
+                    f"Documento incorreto! Você selecionou o botão '{nome_esperado}', "
+                    f"mas o arquivo enviado parece ser '{nome_detectado}'."
+                )
+
+        if tipo_detectado == "pgdas":
+            return extrair_dados_pgdas(pdf, texto_completo)
+        elif tipo_detectado == "folha":
+            return extrair_dados_folha(texto_completo)
+        elif tipo_detectado in ["das", "fgts"]:
+            return extrair_dados_das(texto_completo)
+        elif tipo_detectado == "nfe":
+            return {
+                "tipo_documento": "NFe / NFS-e",
+                "faturamentoMes": 0.0
+            }
+        else:
+            raise ValueError("Tipo de documento não reconhecido. Envie um PGDAS, Folha de Pagamento, Guia DAS/FGTS ou NFe.")
